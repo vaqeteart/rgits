@@ -10,12 +10,6 @@ from xml.dom import minidom
 
 '''
 A tool simulate repo, read manifest.xml, and clone.
-
-TODO
-how to control manifests when like repo forall -c 'git checkout tagxxx'? in repo this will cause it use default_head.xml, but here not.
-how to do clone.cache sync
-how to support original repo project?directly?
-
 '''
 class Manifest(object):
 	def __init__(self):
@@ -142,61 +136,38 @@ EXAMPLE
       Note:You must do this when the projects is at latest_head of local branch.
 
 AUTHOR
-    Written by miracle.lv.
+    Written by quietheart
 
 REPORTTING BUGS
-    Report bugs of this program to <miracle.lv@tpv-tech.com>
+    Report bugs of this program to <quiet_heart000@126.com>
 
 SEE ALSO
    manual page of 'git' and 'repo'.
 	'''
 	return 0
 
-def _init_gits(manifestUrl, branch, manifestFile):
+def _init_gits(initUrl, branch, manifestFile):
 	retCode = 0
-	if manifestUrl == None:
+	if initUrl == None:
 		logging.error("manifest url needs be specified by -u\n")
 		retCode += -1
 		sys.exit(1)
 
-	if branch == None:
+	if branch == None:#XXX must?
 		logging.error("branch needs be specified by -b\n")
 		retCode += -1
 		sys.exit(1)
 
-	if branch == None:
+	if manifestFile == None:
 		logging.error("manifest file needs be specified by -m\n")
 		retCode += -1
 		sys.exit(1)
 
-	if os.access(repo_path, os.F_OK):
-		#logging.info("Will remove previous files %s.\n" %(repo_path))#XXX ask? may be only manifests needs to be remove.
-		#cmd = "rm -rf %s" %(repo_path)
-		logging.info("Will remove previous manifests files %s.\n" %(repo_path))
-		cmd = "mkdir -p %s" %(repo_path + "/manifests")
-		retCode += run_cmd(cmd)
-		cmd = "touch %s" %(repo_path + "/manifest.xml")
-		retCode += run_cmd(cmd)
-		cmd = "rm -rf %s %s" %(repo_path + "/manifests", repo_path + "/manifest.xml")
-		retCode += run_cmd(cmd)
+	_sync_manifests(initUrl + "/manifests", branch, manifestFile)
 
 	cmd = "mkdir -p " + repo_path+"/projects/"
 	retCode += run_cmd(cmd)
 
-	cmd =  "git clone " + manifestUrl + " " + repo_path + "manifests"
-	retCode += run_cmd(cmd)
-
-	check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
-	if 0 != run_cmd(check_branch_exists, True):#if branch not exists
-		cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch, "origin/"+branch)
-		retCode += run_cmd(cmd)
-	else:
-		cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
-		retCode += run_cmd(cmd)
-		logging.warn("%s already exists\n" %branch)
-
-	cmd = "ln -s %s %s" %(repo_path+"manifests/"+manifestFile, repo_path+ "manifest.xml")
-	retCode += run_cmd(cmd)
 	return retCode
 
 def _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head):
@@ -226,20 +197,26 @@ def _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head):
 	
 	return retCode
 
-def _sync_manifests():
+def _sync_manifests(manifestUrl, branch, manifestFile):
 	retCode = 0
-	manifest.parse_manifest(repo_path + "manifest.xml")
-	manifestFile = os.path.basename(os.readlink(repo_path + "manifest.xml"))
-	manifestUrl=manifest.remote[0].getAttribute('fetch') + "/platform/manifest"
-	branch=manifest.default[0].getAttribute('revision')
+
 	tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(branch)
 	if None == tag_match:
 		pass
 	else:
 		branch = tag_match.group(2)
 
-	cmd = "rm -rf %s %s" %(repo_path + "/manifests", repo_path + "/manifest.xml")
-	retCode += run_cmd(cmd)
+	if os.access(repo_path + "/manifests" , os.F_OK):
+		#logging.info("Will remove previous files %s.\n" %(repo_path))#XXX ask? may be only manifests needs to be remove.
+		#cmd = "rm -rf %s" %(repo_path)
+		logging.info("Will remove previous manifests files %s.\n" %(repo_path))
+		cmd = "mkdir -p %s" %(repo_path + "/manifests")
+		retCode += run_cmd(cmd)
+		cmd = "touch %s" %(repo_path + "/manifest.xml")
+		retCode += run_cmd(cmd)
+		cmd = "rm -rf %s %s" %(repo_path + "/manifests", repo_path + "/manifest.xml")
+		retCode += run_cmd(cmd)
+
 	cmd =  "git clone " + manifestUrl + " " + repo_path + "manifests"
 	retCode += run_cmd(cmd)
 
@@ -256,6 +233,7 @@ def _sync_manifests():
 		cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
 		retCode += run_cmd(cmd)
 
+	#XXX check if file exists.
 	cmd = "ln -s %s %s" %(repo_path+"manifests/"+manifestFile, repo_path+ "manifest.xml")
 	retCode += run_cmd(cmd)
 
@@ -351,9 +329,7 @@ def _sync_projects(cleanSync):
 def do_init():
 	retCode = 0
 	try:
-		initUrl=None
-		manifestFile="default.xml"
-		branchName=None
+		initUrl, manifestFile, branch = None, "default.xml", "master" 
 
 		opts, args = getopt.getopt(sys.argv[2:], 'u:m:b:', ['url=', 'manifest=', 'branch='])
 		if len(args) != 0:
@@ -375,7 +351,12 @@ def do_init():
 
 			retCode += _init_gits(initUrl, branch, manifestFile)
 		else:
-			retCode += _sync_manifests()
+			#print repo_path + "manifest.xml"
+			manifest.parse_manifest(repo_path + "/manifest.xml")
+			manifestUrl=manifest.remote[0].getAttribute('fetch') + "/manifests"
+			manifestFile = os.path.basename(os.readlink(repo_path + "manifest.xml"))
+			branch=manifest.default[0].getAttribute('revision')
+			retCode += _sync_manifests(manifestUrl, branch, manifestFile)
 	except getopt.GetoptError,e:
 		logging.error("%s\n", repr(e))
 		show_help()
@@ -541,6 +522,34 @@ def do_cmd():
 			retCode += do_subgits(command)
 	return retCode
 
+def log_err():
+	'''error'''
+	if len(err_cmds) > 0:
+		#TODO if we need try again? in case some op needs all cloned finished.
+
+		f = open('error.log', 'w')
+		stdout = sys.stdout
+
+		sys.stdout = f
+		print "=" * 20
+		print time.asctime()
+		print "%d commands errors, list as following:" %len(err_cmds)
+		print "=" * 20
+		for err_cmd,status in err_cmds:
+			print "[Error] Command:%s, Status:%d" %(err_cmd, status)
+		print "_" * 20
+
+		f.close()
+
+		sys.stdout = stdout
+		print "=" * 20
+		print time.asctime()
+		print "%d commands errors, list as following:" %len(err_cmds)
+		print "=" * 20
+		for err_cmd,status in err_cmds:
+			print "[Error] Command:%s, Status:%d" %(err_cmd, status)
+		print "_" * 20
+
 ######Main function.######
 top_path = os.getcwd()
 repo_dir1 = ".gits/"
@@ -560,38 +569,14 @@ err_cmds = []
 if __name__ == "__main__":
 	retCode = 0
 	try:
-		logging.debug("input argv: %s\n", sys.argv)
+		logging.debug("Input argv: %s\n", sys.argv)
 		if len(sys.argv) == 1:
 			retCode += -1
 			raise(getopt.GetoptError("Command parameter error!"))
 		else:
 			retCode += do_cmd()
 
-		if len(err_cmds) > 0:
-			#TODO if we need try again? in case some op needs all cloned finished.
-
-			f = open('error.log', 'w')
-			stdout = sys.stdout
-
-			sys.stdout = f
-			print "=" * 20
-			print time.asctime()
-			print "%d commands errors, list as following:" %len(err_cmds)
-			print "=" * 20
-			for err_cmd,status in err_cmds:
-				print "[Error] Command:%s, Status:%d" %(err_cmd, status)
-			print "_" * 20
-
-			f.close()
-
-			sys.stdout = stdout
-			print "=" * 20
-			print time.asctime()
-			print "%d commands errors, list as following:" %len(err_cmds)
-			print "=" * 20
-			for err_cmd,status in err_cmds:
-				print "[Error] Command:%s, Status:%d" %(err_cmd, status)
-			print "_" * 20
+		log_err()
 	except getopt.GetoptError,e:
 		logging.error("%s\n", repr(e))
 		show_help()
