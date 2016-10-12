@@ -69,7 +69,7 @@ DESCRIPTION
             show help info.
 
         sync [ -c ]
-            used for update the manifest file and projects in case repo repository changes.
+            used for update the projects in case repository changes.
             If there's error, success synced projects (which will not be synced again next time) will be saved in 'sync.cache'.
             To force sync all git projects no matter whether there's cached file, just remove the 'sync.cache'.
 
@@ -79,7 +79,6 @@ DESCRIPTION
             branch
                 specify common branch for all git projects.
             clone
-                with no parameter for shared git projects from repo server.
                 with only one parameter for git projects for work from shared git projects. 
                 If there's error, success cloned projects (which will not be cloned again next time) will be saved in 'clone.cache'.
                 To force clone all git projects no matter whether there's cached file, just remove the 'clone.cache'.
@@ -107,9 +106,7 @@ EXAMPLE
     1 initialize from server for the 'shared git projects'.
       $mkdir 2k16ppr1 && cd 2k16ppr1 && rgits.py init -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
 
-    2 clone to 'shared git projects' after initialize.
-      $rgits.py clone
-      or
+    2 sync to 'shared git projects' after initialize.
       $rgits.py sync
       Note:we'd better use clone with no parameter here for shared git projects.
 
@@ -170,7 +167,7 @@ def _init_gits(initUrl, branch, manifestFile):
 
 	return retCode
 
-def _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head):
+def _clone_prj(prj, prj_repo, prj_path):
 	retCode = 0
 	cmd = "mkdir -p %s" %(repo_path + "projects/" + prj_path)
 	retCode += run_cmd(cmd)
@@ -180,21 +177,10 @@ def _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head):
 	cmd = "git clone --separate-git-dir=%s %s %s" %(repo_path + "projects/" + prj_path, prj_repo, prj_path)
 	retCode += run_cmd(cmd)
 
-	cmd = "git --git-dir=%s/.git --work-tree=%s %s" %(prj_path, prj_path, 
-			"config remote.origin.url " + manifest.remote[0].getAttribute('fetch') + "/" + prj.getAttribute('name'))
+	cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, 
+			"config remote.origin.url " + manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path)
 	retCode += run_cmd(cmd)
 
-	if tag_match == None:#branch
-		if mirror_head == None:
-			cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)
-			retCode += run_cmd(cmd)
-		else:
-			cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_path, prj_path, local_head, mirror_head)
-			retCode += run_cmd(cmd)
-	else:#tag
-		cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, mirror_head)
-		retCode += run_cmd(cmd)
-	
 	return retCode
 
 def _sync_manifests(manifestUrl, branch, manifestFile):
@@ -275,26 +261,24 @@ def _sync_projects(cleanSync):
 			#check project change
 			if (not os.access(repo_path + "projects/" + prj_path, os.F_OK)) or (not os.access( prj_path, os.F_OK)):
 				if os.access(prj_path, os.F_OK):
-					logging.info("Will remove previous files %s.\n" %(prj_path))#XXX ask?
+					logging.info("Will remove previous work files %s.\n" %(prj_path))#XXX ask?
 					cmd = "rm -rf %s" %(prj_path)
 					tmpRet += run_cmd(cmd)
-				logging.info("%s will be cloned because not exised.\n" %(prj_path))#XXX ask?
-				prj_repo = manifest.remote[0].getAttribute('fetch') + "/" + prj.getAttribute('name')
-				tmpRet += _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head)
-
-			if cleanSync == True:
-				cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_path, prj_path)
-				tmpRet += run_cmd(cmd)
-				if os.access(repo_path + "projects/" + prj_path, os.F_OK):#remove previous rebase
-					cmd = "rm -fr %s/rebase-apply" %(repo_path + "projects/" + prj_path)
+					tmpRet += _clone_prj(prj, manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path, prj_path)
+				elif os.access(repo_path + "projects/" + prj_path, os.F_OK):
+					logging.info("Will restore work files from local repo %s.\n" %(prj_path))#XXX ask?
+					cmd = "mkdir -p %s" %(prj_path)
 					tmpRet += run_cmd(cmd)
-
-			if None == tag_match:
-				branch = local_head	
-			else:
-				branch = mirror_head
+					cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_path, prj_path)
+					tmpRet += run_cmd(cmd)
+					cmd = "echo \"gitdir: %s\" > %s/.git" %(repo_path + "projects/" + prj_path, prj_path)
+					tmpRet += run_cmd(cmd)
+				else:
+					logging.info("%s will be cloned because not exised.\n" %(prj_path))#XXX ask?
+					tmpRet += _clone_prj(prj, manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path, prj_path)
 
 			if tag_match == None:#branch
+				branch = local_head	
 				check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)
 				if 0 != run_cmd(check_branch_exists, True):#if branch not exists
 					cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_path, prj_path, local_head, mirror_head)
@@ -304,8 +288,22 @@ def _sync_projects(cleanSync):
 					retCode += run_cmd(cmd)
 					logging.warn("%s already exists\n" %branch)
 			else:#tag
+				branch = mirror_head
 				cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, mirror_head)
 				retCode += run_cmd(cmd)
+
+			if cleanSync == True:
+				cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_path, prj_path)
+				tmpRet += run_cmd(cmd)
+
+				cmd = "git --git-dir=%s --work-tree=%s clean -xdf" %(repo_path + "projects/" + prj_path, prj_path)
+				tmpRet += run_cmd(cmd)
+
+				if os.access(repo_path + "projects/" + prj_path, os.F_OK):#remove previous rebase
+					cmd = "rm -fr %s/rebase-apply" %(repo_path + "projects/" + prj_path)
+					tmpRet += run_cmd(cmd)
+
+				#TODO How to manage projects which is not in manifest, and the 'copyed' command in manifest.xml?
 
 			cmd = "git --git-dir=%s --work-tree=%s remote update" %(repo_path + "projects/" + prj_path, prj_path)
 			tmpRet += run_cmd(cmd)
@@ -382,62 +380,65 @@ def do_clone(command):
 		cmd = "ln -s %s %s" %(repo_path + "/manifests/" + manifestFile, repo_path + "manifest.xml")#TODO
 		retCode += run_cmd(cmd)
 		
-	manifest.parse_manifest(repo_path + "manifest.xml")
-	mirror_head=manifest.default[0].getAttribute('remote')+ "/" + manifest.default[0].getAttribute('revision')
-	local_head=manifest.default[0].getAttribute('revision')
-	tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(mirror_head)
-	if None != tag_match:
-		mirror_head = tag_match.group(2)
-		local_head=None
+		manifest.parse_manifest(repo_path + "manifest.xml")
+		mirror_head=manifest.default[0].getAttribute('remote')+ "/" + manifest.default[0].getAttribute('revision')
+		local_head=manifest.default[0].getAttribute('revision')
+		tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(mirror_head)
+		if None != tag_match:
+			mirror_head = tag_match.group(2)
+			local_head=None
 
-	if os.access(cachedFile, os.F_OK):#means there's error when last clone, this file contains the success cloned projects.
-		rfile = open(cachedFile)
-		cachedPrjs = rfile.read().split()
-		rfile.close()
-	wfile = open(cachedFile, 'a+')
+		if os.access(cachedFile, os.F_OK):#means there's error when last clone, this file contains the success cloned projects.
+			rfile = open(cachedFile)
+			cachedPrjs = rfile.read().split()
+			rfile.close()
+		wfile = open(cachedFile, 'a+')
 
-	for prj in manifest.projects:
-		tmpRet = 0
-		#dbgClone = 0
-		prj_name=prj.getAttribute('name')
-		prj_path=prj.getAttribute('path')
+		for prj in manifest.projects:
+			tmpRet = 0
+			#dbgClone = 0
+			prj_name=prj.getAttribute('name')
+			prj_path=prj.getAttribute('path')
 
-		if not prj_path:#XXX Some projects don't have path, so use the name as path.
-			logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
-			prj_path=prj_name
-			#dbgClone = 1
+			if not prj_path:#XXX Some projects don't have path, so use the name as path.
+				logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
+				prj_path=prj_name
+				#dbgClone = 1
 
-		#if dbgClone == 1:
-		if prj_path:
-			if prj_path in cachedPrjs:
-				logging.warn("'%s' shows that project in %s is cloned successed before, skip it." %(cachedFile, prj_path))
-				continue
+			#if dbgClone == 1:
+			if prj_path:
+				if prj_path in cachedPrjs:
+					logging.warn("'%s' shows that project in %s is cloned successed before, skip it." %(cachedFile, prj_path))
+					continue
 
-			if (len(command.split()) == 2):#clone from local
 				if command.split()[1][0:1] == "/":#absolute path
 					prj_repo = command.split()[1] + "/" + repo_dir + "projects/" + prj_path
 				else:#relative path
 					prj_repo = top_path + "/" + command.split()[1] + "/" + repo_dir + "projects/" + prj_path
-				mirror_head=None
-			else:#clone from remote
-				prj_repo = manifest.remote[0].getAttribute('fetch') + "/" + prj.getAttribute('name')
 
-			if os.access(prj_path, os.F_OK):
-				logging.info("Will remove previous files %s.\n" %(prj_path))#XXX ask?
-				cmd = "rm -rf %s" %(prj_path)
-				tmpRet += run_cmd(cmd)
+				if os.access(prj_path, os.F_OK):
+					logging.info("Will remove previous files %s.\n" %(prj_path))#XXX ask?
+					cmd = "rm -rf %s" %(prj_path)
+					tmpRet += run_cmd(cmd)
 
-			tmpRet += _clone_prj(prj, prj_repo, prj_path, tag_match, mirror_head, local_head)
+				tmpRet += _clone_prj(prj, prj_repo, prj_path)
 
-			if tmpRet == 0:
-				wfile.write(prj_path+'\n')
-				wfile.flush()
-				os.fsync(wfile)
-		retCode += tmpRet
+				if tag_match == None:#branch
+					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)
+					retCode += run_cmd(cmd)
+				else:#tag
+					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, mirror_head)
+					retCode += run_cmd(cmd)
 
-	wfile.close()
-	if retCode == 0:#leave cached only when there's some error during clone.
-		os.remove(cachedFile)
+				if tmpRet == 0:
+					wfile.write(prj_path+'\n')
+					wfile.flush()
+					os.fsync(wfile)
+			retCode += tmpRet
+
+		wfile.close()
+		if retCode == 0:#leave cached only when there's some error during clone.
+			os.remove(cachedFile)
 	return retCode
 
 def do_sync():
@@ -468,10 +469,10 @@ def do_gits(command):
 		if prj_path:
 			if "reset --hard" in command:#TODO command.split()[0]
 				if not os.access(prj_path, os.F_OK):
-					cmd = "mkdir -p " + prj_path
+					cmd = "mkdir -p %s" %(prj_path)
 					retCode += run_cmd(cmd)
 
-					cmd = "ln -s %s %s " %(repo_path + "projects/" + prj_path , prj_path + "/.git")
+					cmd = "echo \"gitdir: %s\" > %s/.git" %(repo_path + "projects/" + prj_path, prj_path)
 					retCode += run_cmd(cmd)
 				cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				retCode += run_cmd(cmd)
@@ -578,6 +579,7 @@ if __name__ == "__main__":
 
 		log_err()
 	except getopt.GetoptError,e:
+		log_err()
 		logging.error("%s\n", repr(e))
 		show_help()
 		sys.exit(retCode)
