@@ -308,7 +308,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [40%] [2/5]
+* WAIT/FORWARD TODO [33%] [2/6]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -332,3 +332,7 @@ CLOSED: [2016-10-11 二 17:32]
 - State "NEXT"       from              [2016-09-12 一 18:11]
 ** LATER 如何处理在同步多个项目时，不断输入密码的问题？
 - State "LATER"      from              [2016-10-11 二 17:32]
+** LATER 每次重新init之后，最好进行sync，sync之时，如何处理被移除的目录？以及子项目库？
+- State "LATER"      from              [2016-10-13 四 15:34]
+
+考虑清除被移除的工作目录，而子项目库目录保留在本地做为缓存便于切换产品线（除非服务所有产品线没有该子项目了）
