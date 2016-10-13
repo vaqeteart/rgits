@@ -1,1 +1,606 @@
-/home/miracle/mydata/orgmode/gtd/output/rgits_intro.org
+参考:[[id:9cc2db7b-2b3d-4c14-a51c-d4ca3e130f44][rgits insteadof repo review]]
+
+一个可以替代 =repo= 并且节省空间的python脚本工具。
+
+一个分布式可进行批量 =git= 项目管理的工具。
+
+为便于理解，以实际开发中的例子做为引导，
+
+为项目机密，仅对该工具实现方面进行介绍，文中不涉及项目具体内容。
+
+* WAIT/FORWARD Replace replace repo with git to develop for save space
+:PROPERTIES:
+:ID:       1231e816-94a3-4246-8bcd-f3a410dbe19c
+:END:
+- State "WAIT/FORWARD" from "DONE"       [2016-01-11 一 10:04] \\
+  wait for orgnize to document.
+- State "DONE"       from "NEXT"       [2016-01-08 五 09:37]
+- State "NEXT"       from              [2015-12-31 四 12:10]
+
+
+
+We use this article to describe how to use rgits instead of repo to manage project.
+
+If you want to save space with many work spaces, the source and destination for git clone must be in the same partition. As said in git manual.
+#+BEGIN_EXAMPLE
+GIT-CLONE(1)                                                        Git Manual                                                        GIT-CLONE(1)
+
+NAME
+       git-clone - Clone a repository into a new directory
+...
+       --local, -l
+           When the repository to clone from is on a local machine, this flag bypasses the normal "git aware" transport mechanism and clones the
+           repository by making a copy of HEAD and everything under objects and refs directories. The files under .git/objects/ directory are
+           hardlinked to save space when possible. This is now the default when the source repository is specified with /path/to/repo syntax, so
+           it essentially is a no-op option. To force copying instead of hardlinking (which may be desirable if you are trying to make a back-up
+           of your repository), but still avoid the usual "git aware" transport mechanism, --no-hardlinks can be used.
+
+#+END_EXAMPLE
+
+The script currently is here, and it may update according to the fix.
+[[../src/rgits.py][rgits script]]
+
+** Class
+One repo project contains many git projects, and  we often met thiese two items in this article, we can see them as following.
+*** git project = git repository + git work space
+
+When we in an git project, we have:
++ A git repository :: which is =.git=, contains branches and commit info
++ A git work space :: which is the work files
+
+#+BEGIN_SRC plantuml :file ../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/classes_git.png
+GitProject *--> GitRepository
+GitProject *--> GitWorkSpace
+#+END_SRC
+
+#+RESULTS:
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/classes_git.png]]
+
+An example in a real project:
+
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/git_project_example.png]]
+
+
+*** repo project = repo repository + repo work space
+
+When we in an repo project, we have:
++ A repo repository :: which is =.repo=, contains lots of git repositories.
++ A repo work space :: which is the work files, contains corresponding lots of git work space.
+
+#+BEGIN_SRC plantuml :file ../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/classes_repo.png
+RepoProject *--> RepoRepository
+RepoProject *--> RepoWorkSpace
+#+END_SRC
+
+#+RESULTS:
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/classes_repo.png]]
+
+An example in a real project:
+
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/repo_project_example.png]]
+
+** Actor
+*** Actor list
+Take above real example for clear, when working, we can see these actors.
++ BLR server :: The sync server of the whole repo project.
++ SZ mirror :: The whole local system has only one "SZ mirror".
+  
+  The mirror of the "BLR server" for SZ local users. Can be used for "repo sync" by "private repo projects".
+
++ public shared git projects :: The whole local system has only one "public shared git projects".
+
+  The git projects exported from the "SZ mirror". It use "git clone" to "private git projects" by all users.
+  
++ private shared git projects :: Each user has only one "private shared git project".
+
+  The git projects exported from the "SZ mirror". It use "git clone" to "private git projects" by local system users.
+
++ private repo projects :: Each user may have more than one work branch, each branch stands for one "private repo projects".
+
+  It use "repo sync" to keep sync with "SZ mirror". The repo projects for each system users.
+
++ private git projects :: Each user may have more than one work branch, each branch may have more than one git projects (corresponding to the "SZ mirror").
+
+  It use "git clone" to keep sync with "private shared git projects" or "public shared git projects". The git projects for each system users.
+
+*** Actor work
+We can use "repo sync" or "git clone" way to sync between actors.
+
+The "repo sync" way is the way we used in 2K15 before, the "git clone" is an experimental way for improving space usage.
+
+The actors work as following:
+
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/actors.png]]
+
+** Sequence
+Following will show how we works on these actors with this two way.
+*** old sequence in a example project named "2K15"
+
+**** The work flow mainly
+
+#+BEGIN_SRC plantuml :file ../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/old2k15sequence.png
+== System configuration ==
+participant "BLR server" as BLR
+participant "SZ mirror" as SZ
+participant "private git projects" as projects
+
+BLR <-> SZ : repo init/repo sync(1:1)
+note over BLR,SZ
+1 BLR server sync with 1 SZ mirror.
+end note
+
+== Initialization ==
+SZ <-> projects : repo init/repo sync(1:n*m)
+note over SZ,projects
+1 SZ mirror is used by n user, each user has m projects,
+totally, 1 SZ mirror sync with n * m projects. 
+end note
+
+== Daily work ==
+projects <-> BLR : git pull/git push(1:n*m)
+note over BLR,projects
+each work project is updated by "git pull" from BLR server to the latest version,
+commit for each work project is sent by "git push" to BLR server. 
+end note
+#+END_SRC
+
+#+RESULTS:
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/old2k15sequence.png]]
+
+1. mkdir -p <private repo project> && cd <private repo project> && repo init
+2. repo sync
+3. repo forall -c 'git checkout xxxTAG'
+4. make/build
+5. git branch/checkout -b
+6. edit/mm
+7. git pull/add/commit/push
+Note:Here we get the project for work <private repo project>,
+if you want another, you should repeat from 1 in another directory, for example <private repo project2>.
+
+**** space usage
+From the above we can see:
+
+if we have n users, and each user has m projects;
+for each project, repository space is 40G, and work space is 60G;
+n=14,m=3
+
+Total space is: 40G(SZ Mirror) + [40G(repository)  + 60G(work space)] * n(user) * m(project)=40G+100G*m*n=4240G
+
+*** new sequence
+
+**** The work folow mainly
+#+BEGIN_SRC plantuml :file  ../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/newsequence.png
+participant "BLR server" as BLR
+participant "SZ mirror" as SZ
+participant "private shared git projects" as shared
+participant "private git projects" as projects
+
+== System configuration ==
+BLR <-> SZ: repo init/repo sync(1:1)
+note over BLR,SZ
+1 BLR server sync with 1 SZ mirror.
+end note
+
+== Initialization ==
+SZ -> shared: git clone(1:n)
+note over SZ,shared
+1 SZ mirror is used by n user, each user has one private shared git project.
+totally, 1 SZ mirror cloned to n private shared git projects.
+end note
+
+== Daily work ==
+shared -> projects: git clone(1:m)
+note over shared,projects
+1 user has 1 private shared git projects, and m work projects.
+totally, 1 private shared git projects cloned to m work projects.
+end note
+
+projects <-> BLR: git pull/git push(1:n*m)
+note over BLR,projects
+each work project is updated by "git pull" from BLR server to the latest version,
+commit for each work project is sent by "git push" to BLR server. 
+end note
+#+END_SRC
+
+#+RESULTS:
+[[./data/1231e816-94a3-4246-8bcd-f3a410dbe19c/newsequence.png]]
+
+1. mkdir -p <private shared git project> && cd <private shared git project> && rgits.py init
+2. rgits.py clone
+3. mkdir -p <private git project> && cd <private git project> && rgits.py clone <private shared git project>
+4. rgits.py checkout xxxTAG
+5. make/build
+6. git branch/checkout -b
+7. edit/mm
+8. git pull/add/commit/push
+Note: Here in fact we get two project available for work:<private shared git project> and <private git project>,
+if you have only one work project, 3 can be ignore, if you want one more, repeat from 3 in another directory, for example <private git project2>.
+
+**** space usage
+if we have n users, and each user has m projects;
+for each project, repository space is 40G, and work space is 60G;
+n=14,m=3
+
+Total space is: 40G(SZ Mirror) + 40G(shared repository)*n(user)  + 60G(work space) * n(user) * m(project)=40G+(40G + 60G*m)*n=40G+40*14+60*42=3120G
+
+*** assumption sequence
+
+**** The work folow mainly
+#+BEGIN_SRC plantuml :file  ../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/assumptionsequence.png
+participant "BLR server" as BLR
+participant "SZ mirror" as SZ
+participant "public shared git projects" as public
+participant "private git projects" as projects
+
+== System configuration ==
+BLR <-> SZ: repo init/repo sync(1:1)
+note over BLR,SZ
+1 BLR server sync with 1 SZ mirror.
+end note
+
+== Initialization ==
+SZ -> public: git clone(1:1)
+note over SZ,public
+1 SZ mirror is cloned to 1 public shared git project.
+end note
+
+== Daily work ==
+public -> projects: git clone(1:n*m)
+note over shared,projects
+1 public shared git project is used by n user, each user has m work projects.
+totally, 1 public shared git projects cloned to n*m work projects.
+end note
+
+projects <-> BLR: git pull/git push(1:n*m)
+note over BLR,projects
+each work project is updated by "git pull" from BLR server to the latest version,
+commit for each work project is sent by "git push" to BLR server. 
+end note
+#+END_SRC
+
+#+RESULTS:
+[[file:../data/1231e816-94a3-4246-8bcd-f3a410dbe19c/assumptionsequence.png]]
+
+1. mkdir -p <private git project> && cd <private git project> && rgits.py clone <private shared git project>
+2. rgits.py checkout xxxTAG
+3. make/build
+4. git branch/checkout -b
+5. edit/mm
+6. git pull/add/commit/push
+Note: Here in fact we need init <public git project like step1 before this sequence,
+if you have only one work project, 3 can be ignore, if you want one more, repeat from 3 in another directory, for example <private git project2>.
+
+**** space usage
+if we have n users, and each user has m projects;
+for each project, repository space is 40G, and work space is 60G;
+n=14,m=3
+
+Total space is: 40G(SZ Mirror) + 40G(shared repository)+ 60(shared work space) + 60G(work space) * n(user) * m(project)=40G+100G+ 60G*m*n=140G+60*42=2660G
+
+** Commands
+Here we give the example about work with the second way ‘new sequence’, for consideration of company, we don't use ip address and detail information.
+*** Initialize the private shared git projects
+Commands
+#+BEGIN_SRC sh
+$mkdir 2k16ppr1gits
+$cd 2k16ppr1gits
+$rgits.py -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
+#+END_SRC
+After initialized here, the ‘2k16ppr1gits’  is as private shared git projects, it contains the ‘.gits’ directory, and ‘.gits’ directory contains ‘manifests’.Note this will remove previous ‘.gits’ file.
+
+*** Clone the private shared git projects
+Commands
+#+BEGIN_SRC sh
+$rgits.py clone
+#+END_SRC
+After cloned, ‘2k16ppr1gits/.gits’ contains ‘projects’, and ‘projects’ contains the git projects of the project, We can see ‘2k16ppr1gits’ as normal work project  as belowing private git projects now, and work in it. Note: clone will remove previous repositories and work space of all the git projects.
+
+*** Clone to private git projects
+Commands
+#+BEGIN_SRC sh
+$mkdir 2k16ppr1gitsclone1
+$cd 2k16ppr1gitsclone1
+$rgits.py clone ../2k16ppr1gits
+#+END_SRC
+After cloned, the ‘2k16ppr1gitsclone1’ is as private git projects, contains ‘.gits/manifests’ and ‘.gits/projects’, and it is the same as the private shared git projects , ‘2k16ppr1gits’. Note: clone will remove previous repositories and work space of all the git projects.
+
+*** Sync manifest
+Commands
+#+BEGIN_SRC sh
+$rgits.py sync
+#+END_SRC
+In case the manifest file changed on server, we can run this command to update manifest. Note: this will remove previous manifest files, and result is the same as initialize command, and it use the same parameter as last initialize.
+
+*** Git manage commands
+If the rgits.py runs in any subdirectory of the project root directory(i.e. Not in the same directory as ‘.gits’), it will support almost all common git commands  under that sub directory.
+
+For example:
+#+BEGIN_SRC sh
+$ pwd
+/home/miracle.lv/home2/2k16ppr1gits/device/tpvision/tvsoc
+
+$rgits.py branch
+=================================
+find . -name .git |sed s/.git$//g
+return:0
+=================================
+==========================================================================
+cd /home2/miracle.lv/2k16ppr1/device/tpvision/tvsoc/./pqhw/ && git branch 
+return:0
+==========================================================================
+For project './pqhw/':
+----------------------
+ * (no branch)
+  r0.0.066
+===============================================================================
+cd /home2/miracle.lv/2k16ppr1/device/tpvision/tvsoc/./tvsoc_mtk/ && git branch 
+return:0
+===============================================================================
+For project './tvsoc_mtk/':
+---------------------------
+ * (no branch)
+  r0.0.066
+  rm_testdemo_from0.66
+=============================================================================
+cd /home2/miracle.lv/2k16ppr1/device/tpvision/tvsoc/./backend/ && git branch 
+return:0
+=============================================================================
+For project './backend/':
+-------------------------
+ * (no branch)
+  r0.0.066
+=================================================================================
+cd /home2/miracle.lv/2k16ppr1/device/tpvision/tvsoc/./hdcpdecrypt/ && git branch 
+return:0
+=================================================================================
+For project './hdcpdecrypt/':
+-----------------------------
+ * (no branch)
+  r0.0.066
+#+END_SRC
+
+
+** NEXT work with rgits instead of repo to save disk space.
+- State "NEXT"       from              [2016-01-09 六 13:50]
+
+*** structure
+We can see the difference between =repo= and =rgits.py= from the following structure.
+
+[[file:~/mydata/orgmode/data/1231e816-94a3-4246-8bcd-f3a410dbe19c/repo_structure.png]]
+
+[[file:~/mydata/orgmode/data/1231e816-94a3-4246-8bcd-f3a410dbe19c/gits_structure.png]]
+
+*** work flow
+Follwing we see difference between work with =repo= and =rgits.py=.
+**** Install rgits.py
+#+BEGIN_SRC sh
+$mkdir -p ~/bin
+$cp rgits.py ~/bin
+$echo 'export PATH=/home/miracle.lv/bin:${PATH//\/home\/miracle.lv\/bin:/}' >>/home/miracle.lv/.bashrc
+$export PATH=/home/miracle.lv/bin:${PATH//\/home\/miracle.lv\/bin:/}
+#+END_SRC
+**** init project dir
+1. with repo:
+   #+BEGIN_SRC sh
+   $cd ~/home2
+   $mkdir 2k16ppr1repo
+   $cd 2k16ppr1repo
+   $repo init -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
+   #+END_SRC
+
+2. likely, with rgits.py:
+   #+BEGIN_SRC sh
+   $cd ~/home2
+   $mkdir 2k16ppr1gits
+   $cd 2k16ppr1gits
+   $rgits.py init -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
+   #+END_SRC
+   Note: This only checkout manifest branch, if you wan't to checkout branch, you should do it like =rgits.py checkout xxxx= .
+
+**** clone projects from mirror
+1. with repo:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1repo
+   $repo sync
+   #+END_SRC
+
+2. likely, with rgits.py:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1gits
+   $rgits.py clone
+   or
+   $rgits.py sync
+   #+END_SRC
+   Note: after clone, it switch to the head of branch head automatically, you can use =rgits.py branch= to see the branches.
+   According to ~/.ssh/config before, mirror may be SZ/XM/BLR.
+
+**** update init config for another manifest/branch
+1. with repo:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1repo
+   $repo init -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
+   #+END_SRC
+
+2. likely, with rgits.py:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1gits
+   $rgits.py init -m default_head.xml -u ssh://gerrit/platform/manifest -b tpvision/2k16_mtk_ppr1refdev
+   #+END_SRC
+
+**** update project code
+1. with repo:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1repo
+   $repo sync
+   #+END_SRC
+
+2. likely, with rgits.py:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1gits
+   $rgits.py sync
+   or
+   $rgits.py pull
+   #+END_SRC
+   Note: =pull= is like =git pull=, which must based on the head of branch. If you checked out to a tag, you must checkout back to the head of branch before this command. see =rgits.py branch= for branch info, and =rgits.py checkout xxx= to checkout branch, as said below.
+
+**** checkout/change/commit/push
+1. with repo
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1repo
+   $repo forall -c 'git checkout QM16XE_F_R0.0.0.54'
+   $./device/tpvision/common/sde/upg/build_philipstv.sh -p QM16XE_F
+   $cd device/tpvision/tvsoc/tvsoc_mtk
+   $git checkout -b latest_head origin/tpvision/2k16_mtk_ppr1refdev
+   $git pull
+   $vim xxx
+   $git add/commit/push
+   #+END_SRC
+
+2. likely, with rgits.py:
+   #+BEGIN_SRC sh
+   $cd 2k16ppr1gits
+   $rgits.py checkout QM16XE_F_R0.0.0.54
+   $./device/tpvision/common/sde/upg/build_philipstv.sh -p QM16XE_F
+   $cd device/tpvision/tvsoc/tvsoc_mtk
+   $git checkout -b latest_head origin/tpvision/2k16_mtk_ppr1refdev
+   $git pull
+   $vim xxx
+   $git add/commit/push
+   #+END_SRC
+   Note: we can also replace the 'git' command after =cd device/tpvision/tvsoc/tvsoc_mtk= with rgits.py.
+
+**** in addition
+For rgits.py, there's some other features.
+1. Start a new project from locally cloned project 
+   #+BEGIN_SRC sh
+   $cd ~/home2
+   $cd 2k16ppr1gits1
+   $rgits.py clone ~/home2/2k16ppr1gits
+   #+END_SRC
+   With repo, we have to go through =repo init/sync= again, and it consume lots of space. Here we only share the repository space with previous project, as hardlink to save space. And it is more faster than do =repo init/sync= again.
+
+2. Mange git projects under specific sub dir.
+   Assume 'device/tpvision/tvsoc' contains following git projects, and itself is not a git project:
+   #+BEGIN_SRC sh
+   $cd device/tpvision/tvsoc
+   $ls
+   Android.mk  backend  hdcpdecrypt  pqhw  tvsoc_mtk
+   #+END_SRC
+
+   We can manage them together with =rgits.py=, instead of use =git= one by one, for example show status as following.
+   #+BEGIN_SRC sh
+   $ rgits.py status
+   =====================================================================================
+   =====================================================================================
+   For project './pqhw/':
+   ----------------------
+   # Not currently on any branch.
+   nothing to commit (working directory clean)
+   ==========================================================================================
+   ==========================================================================================
+   For project './tvsoc_mtk/':
+   ---------------------------
+   # Not currently on any branch.
+   nothing to commit (working directory clean)
+   ========================================================================================
+   ========================================================================================
+   For project './backend/':
+   -------------------------
+   # Not currently on any branch.
+   nothing to commit (working directory clean)
+   ============================================================================================
+   ============================================================================================
+   For project './hdcpdecrypt/':
+   -----------------------------
+   # Not currently on any branch.
+   nothing to commit (working directory clean)
+   #+END_SRC
+
+3. Clean init and sync
+   1) Manifests
+
+      In addition to the =git reset/clean= command itself, the rgits.py has some feature to avoid data corruption.
+      
+      We can use =rgits.py init= , it will remove current local manifest, and update it from mirror. The manifest is in ".gits" directory, which is created while initialize before, and =rgits.py init= is like do the initialize again with the same parameter as last time. Manifest don't affect the git projects, but it is used for organize the git projects. This =rgits.py init= make sure the manifest file to be the same as latest from mirror, in case of out of date.
+
+   2) Git projects
+
+      The =rgits.py clone [path]= itself work like this: one by one, it remove previous cloned git project, and clone it from remote. It make sure that multi use of =rgits.py clone [path]= won't make the data messy, and it keeps uncloned projects as before, and cloned projects clean and latest.
+
+4. Cache and error
+
+   When we do the =rgits.py clone [path]= or =rgits.py sync=, it will cache the success cloned/synced project one by one in "clone.cache"/"sync.cache" file, and remove it if we finished clone/sync all project successfully. If the process is interrupted by some reason(poor network or some disk error, etc), we can restart =rgits.py clone [path]= or =rgits.py sync= and it will automatically skip the success cloned/sync project before, to save time.
+
+   When we do the work with =rgits.py=, if it met some error when excute some command, it will print it and wait for user's action: 
+   1) If =Ctrl C=, the whole rgits.py will exit; 
+   2) If do nothing, it will wait for 5 seconds, and continue. 
+
+   After the rgits.py exit itself (i.e. select (2) above), it will save all the error command to "error.log" file before exit, this may help us know what error happens when we do =rgits.py=. 
+
+5. Others
+
+   More help refer to:
+   #+BEGIN_SRC sh
+   $rgits.py help |less
+   #+END_SRC
+
+   If there's some problem feel free to contact: miracle.lv@tpv-tech.com
+** Others
+
+
+* 改进
+** LATER rgits对于任意命令的缓存
+- State "LATER"      from "INBOX"      [2016-01-13 三 16:36]
+Capture Time:[2016-01-12 二 16:16]
+---------
+
+** WAIT/FORWARD rgits中的pull关于remote和mirror分支远程名称的处理
+- State "WAIT/FORWARD" from "INBOX"      [2016-01-12 二 17:18] \\
+  进一步整理。
+Capture Time:[2016-01-11 一 12:22]
+---------
+
+clone之后的git项目，自带一个分支，分支的名称和manifest名称一样，默认的remote地址也被修改，修改成mirror的地址，而非clone的源。
+
+** LATER 增加rgits的C-c信号捕获
+- State "LATER"      from "INBOX"      [2016-01-13 三 16:13]
+Capture Time:[2016-01-11 一 11:32]
+---------
+
+** LATER rgits打印分支的方法
+- State "LATER"      from "INBOX"      [2016-01-13 三 16:13]
+Capture Time:[2016-01-11 一 11:29]
+---------
+最好不要打印好多信息，只打印分组的分支。
+
+** LATER rgits切换分支时是否切换manifest和code同时进行？
+- State "LATER"      from              [2016-01-13 三 16:13]
+
+** MAYBE/FUTURE clean sync for the rgits.py
+- State "MAYBE/FUTURE" from "LATER"      [2016-04-16 六 15:45]
+- State "LATER"      from "INBOX"      [2016-02-09 二 10:19]
+Capture Time:[2016-01-21 四 14:42]
+---------
+
+if sync fail, 
+use reset --hard, and rm -rf /home2/miracle.lv/asta2.0/.gits/projects/vendor/tv/rebase-apply before sync.
+
+** MAYBE/FUTURE rgits进度条？
+- State "MAYBE/FUTURE" from "LATER"      [2016-04-16 六 15:44]
+- State "LATER"      from "INBOX"      [2016-02-09 二 10:19]
+Capture Time:[2016-01-19 二 17:51]
+---------
+
+** LATER 对文中插图，尽量采用ditaa或者dot绘图方式进行
+- State "LATER"      from "NEXT"       [2016-09-08 四 19:32]
+- State "NEXT"       from              [2016-09-08 四 19:31]
+
+** LATER 考虑建立此工具的配置文件，使之某些选项可配置，比如默认初始化路径、默认库名(".gits")
+- State "LATER"      from              [2016-09-08 四 19:40]
+
+** NEXT 如何Create最初的rgits库？
+- State "NEXT"       from              [2016-09-08 四 19:51]
+
+** NEXT 开发此工具的驱动力
+- State "NEXT"       from              [2016-09-08 四 19:58]
+管理自己的文档。
