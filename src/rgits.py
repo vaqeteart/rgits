@@ -178,7 +178,7 @@ def _clone_prj(prj, prj_repo, prj_path):
 	retCode += run_cmd(cmd)
 
 	cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, 
-			"config remote.origin.url " + manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path)
+			"config remote.origin.url " + prj_repo)
 	retCode += run_cmd(cmd)
 
 	return retCode
@@ -231,12 +231,14 @@ def _sync_projects(cleanSync):
 	cachedPrjs = []
 	manifest.parse_manifest(repo_path + "manifest.xml")
 
-	mirror_head=manifest.default[0].getAttribute('remote')+ "/" + manifest.default[0].getAttribute('revision')
+	default_remote = manifest.remote[0]
+	for rn in manifest.remote:
+		if manifest.default[0].getAttribute('remote') == rn.getAttribute('name'):
+			default_remote = rn
+			break
+
 	local_head=manifest.default[0].getAttribute('revision')
-	tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(mirror_head)
-	if None != tag_match:
-		mirror_head = tag_match.group(2)
-		local_head=None
+	mirror_head=manifest.default[0].getAttribute('remote')+ "/" + local_head
 
 	if os.access(cachedFile, os.F_OK):#means there's error when last sync, this file contains the success synced projects.
 		rfile = open(cachedFile)
@@ -248,6 +250,29 @@ def _sync_projects(cleanSync):
 		tmpRet = 0
 		prj_name=prj.getAttribute('name')
 		prj_path=prj.getAttribute('path')
+		prj_remote=prj.getAttribute('remote')
+		prj_head=prj.getAttribute('revision')
+		remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
+
+		if not prj_head:
+			pass
+		else:
+			local_head=prj_head
+
+		if not prj_remote:
+		 	remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
+		else:
+			for rn in manifest.remote:
+				if prj_remote == rn.getAttribute('name'):
+					default_remote = rn
+					remote_fetch = default_remote.getAttribute('fetch')
+					break
+			mirror_head = "origin" + "/" + local_head
+
+		tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(mirror_head)
+		if None != tag_match:
+			mirror_head = tag_match.group(2)
+			local_head=None
 
 		if not prj_path:#XXX Some projects don't have path, so use the name as path.
 			logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
@@ -264,7 +289,7 @@ def _sync_projects(cleanSync):
 					logging.info("Will remove previous work files %s.\n" %(prj_path))#XXX ask?
 					cmd = "rm -rf %s" %(prj_path)
 					tmpRet += run_cmd(cmd)
-					tmpRet += _clone_prj(prj, manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path, prj_path)
+					tmpRet += _clone_prj(prj, remote_fetch, prj_path)
 				elif os.access(repo_path + "projects/" + prj_path, os.F_OK):
 					logging.info("Will restore work files from local repo %s.\n" %(prj_path))#XXX ask?
 					cmd = "mkdir -p %s" %(prj_path)
@@ -275,7 +300,7 @@ def _sync_projects(cleanSync):
 					tmpRet += run_cmd(cmd)
 				else:
 					logging.info("%s will be cloned because not exised.\n" %(prj_path))#XXX ask?
-					tmpRet += _clone_prj(prj, manifest.remote[0].getAttribute('fetch') + "/projects/" + prj_path, prj_path)
+					tmpRet += _clone_prj(prj, remote_fetch, prj_path)
 
 			if tag_match == None:#branch
 				branch = local_head	
@@ -421,7 +446,7 @@ def do_clone(command):
 					cmd = "rm -rf %s" %(prj_path)
 					tmpRet += run_cmd(cmd)
 
-				tmpRet += _clone_prj(prj, prj_repo, prj_path)
+				tmpRet += _clone_prj(prj, prj_repo, prj_path) #TODO for clone the multi remote
 
 				if tag_match == None:#branch
 					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)

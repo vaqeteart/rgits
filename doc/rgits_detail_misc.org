@@ -287,7 +287,10 @@ $rgits.py sync
 #+END_SRC
 这样，会创建 =.gits/projects= 中的内容，并将对应项目工作路径导出到当前工作目录，即和 =.gits= 同级别的目录。
 
-** 克隆
+** WAIT/FORWARD 克隆
+- State "WAIT/FORWARD" from "NEXT"       [2016-10-17 一 18:26] \\
+  can't support multi remote.
+- State "NEXT"       from              [2016-10-17 一 18:26]
 *** 语法
 =clone <local path>=
 *** 描述
@@ -308,7 +311,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [33%] [2/6]
+* WAIT/FORWARD TODO [25%] [2/8]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -336,3 +339,15 @@ CLOSED: [2016-10-11 二 17:32]
 - State "LATER"      from              [2016-10-13 四 15:34]
 
 考虑清除被移除的工作目录，而子项目库目录保留在本地做为缓存便于切换产品线（除非服务所有产品线没有该子项目了）
+** NEXT 对来自不同上游的子项目的处理，而非只用公共上游
+- State "NEXT"       from "LATER"      [2016-10-13 四 15:55]
+- State "LATER"      from              [2016-10-13 四 15:54]
+** NEXT Manifest扩展
+- State "NEXT"       from              [2016-10-13 四 16:38]
+
+扩展解析 =manifest.xml= 中的语法。
+#+BEGIN_EXAMPLE
+<command value="xxx"/>
+
+<xxx remote="xxx" revision="xxx"/>
+#+END_EXAMPLE
