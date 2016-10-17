@@ -48,15 +48,15 @@ Manifest 描述 Project 信息。多个 =git project= 按照特定 =Manifest= �
 <!-- Here is a template of manifest.xml -->
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-  <!-- remote list -->
+  <!-- remote list: first remote must be the rgits prefix path, others is real git project path. -->
   <remote  name="origin"
            fetch="ssh://127.0.0.1"
            push="ssh://127.0.0.1"
            />
 
-  <remote  name="origin"
-           fetch="ssh://127.0.0.1"
-           push="ssh://127.0.0.1"
+  <remote  name="origin2"
+           fetch="xxxx/xxx.git"
+           push="xxx/xxx.git"
            />
 
   <!-- rgit manifest infomation -->
@@ -185,8 +185,8 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
            />
 
   <remote  name="origin2"
-           fetch="ssh://127.0.0.1"
-           push="ssh://127.0.0.1"
+           fetch="ssh://127.0.0.1/xxx.git"
+           push="ssh://127.0.0.1/xxx.git"
            />
 
   <!-- rgit manifest infomation -->
@@ -206,6 +206,9 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 #+END_EXAMPLE
 
 其格式参照了google的 repo配置文件。含义不言而喻。
+
+注意这里的 =remote= ：
+为保证后面的每个 =project= 能够支持特定的 =remote= 属性，这里我们强制规定 =remote list= 中第一个 =remote= 其内容是 =rgits= 的项目集合路径，而其他的 =remote= 是具体的git项目路径。就是说，第一个 =remote= 路径结合后面的 =project= 名称才构成可抓取的存在的git项目路径；而后面的 =remote= 就是直接可以被抓取的 “外部” git项目路径，不用拼接，一般会被某个 =project= 的 =remote= 属性引用。
 
 * 主要命令语法与详述
 这里 =$repo_dir= 是 =rgits= 管理的目录，默认为 =./.gits=.
