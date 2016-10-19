@@ -246,6 +246,10 @@ def _sync_projects(cleanSync):
 		rfile.close()
 	wfile = open(cachedFile, 'a+')
 
+	if cleanSync == True:
+		cmd = "rm -rf *"
+		retCode += run_cmd(cmd)
+
 	for prj in manifest.projects:
 		tmpRet = 0
 		prj_name=prj.getAttribute('name')
@@ -318,12 +322,6 @@ def _sync_projects(cleanSync):
 				retCode += run_cmd(cmd)
 
 			if cleanSync == True:
-				cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_path, prj_path)
-				tmpRet += run_cmd(cmd)
-
-				cmd = "git --git-dir=%s --work-tree=%s clean -xdf" %(repo_path + "projects/" + prj_path, prj_path)
-				tmpRet += run_cmd(cmd)
-
 				if os.access(repo_path + "projects/" + prj_path, os.F_OK):#remove previous rebase
 					cmd = "rm -fr %s/rebase-apply" %(repo_path + "projects/" + prj_path)
 					tmpRet += run_cmd(cmd)

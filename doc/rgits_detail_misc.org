@@ -210,6 +210,8 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 注意这里的 =remote= ：
 为保证后面的每个 =project= 能够支持特定的 =remote= 属性，这里我们强制规定 =remote list= 中第一个 =remote= 其内容是 =rgits= 的项目集合路径，而其他的 =remote= 是具体的git项目路径。就是说，第一个 =remote= 路径结合后面的 =project= 名称才构成可抓取的存在的git项目路径；而后面的 =remote= 就是直接可以被抓取的 “外部” git项目路径，不用拼接，一般会被某个 =project= 的 =remote= 属性引用。
 
+建议尽量不要为每个项目定制额外的 =remote=, 即建议 =manifest.xml= 中只有一个remote，因为若非如此，其实也会为批量处理带来麻烦。
+
 * 主要命令语法与详述
 这里 =$repo_dir= 是 =rgits= 管理的目录，默认为 =./.gits=.
 ** 初始化
@@ -314,7 +316,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [25%] [2/8]
+* WAIT/FORWARD TODO [20%] [2/10]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -345,6 +347,11 @@ CLOSED: [2016-10-11 二 17:32]
 ** NEXT 对来自不同上游的子项目的处理，而非只用公共上游
 - State "NEXT"       from "LATER"      [2016-10-13 四 15:55]
 - State "LATER"      from              [2016-10-13 四 15:54]
+** WAIT/FORWARD =sync -c= 清理工作目录中没有的内容
+- State "WAIT/FORWARD" from              [2016-10-19 三 16:24] \\
+  wait for test.
+
+=sync -c= 会先删除所有工作目录中的内容，然后依次用 =reset --hard= 恢复。
 ** NEXT Manifest扩展
 - State "NEXT"       from              [2016-10-13 四 16:38]
 
@@ -354,3 +361,10 @@ CLOSED: [2016-10-11 二 17:32]
 
 <xxx remote="xxx" revision="xxx"/>
 #+END_EXAMPLE
+** LATER 考虑如何设定多个remote，remote的类型可以是rgits项目，也可以是git项目。
+- State "LATER"      from "NEXT"       [2016-10-18 二 17:20]
+- State "NEXT"       from              [2016-10-18 二 11:28]
+
+考虑先不实现多个remote的问题。因为多个remote与设计rgits的思想有些相悖。
+
+** 考虑manifest.xml的扩展性问题，如何设计结构和类
