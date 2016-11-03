@@ -237,8 +237,8 @@ def _sync_projects(cleanSync):
 			default_remote = rn
 			break
 
-	local_head=manifest.default[0].getAttribute('revision')
-	mirror_head=manifest.default[0].getAttribute('remote')+ "/" + local_head
+	default_head=manifest.default[0].getAttribute('revision')
+	default_mirror=manifest.default[0].getAttribute('remote')+ "/" + default_head
 
 	if os.access(cachedFile, os.F_OK):#means there's error when last sync, this file contains the success synced projects.
 		rfile = open(cachedFile)
@@ -252,6 +252,7 @@ def _sync_projects(cleanSync):
 
 	for prj in manifest.projects:
 		tmpRet = 0
+		prj_mirror = default_mirror
 		prj_name=prj.getAttribute('name')
 		prj_path=prj.getAttribute('path')
 		prj_remote=prj.getAttribute('remote')
@@ -259,9 +260,9 @@ def _sync_projects(cleanSync):
 		remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
 
 		if not prj_head:
-			pass
+			prj_head = default_head
 		else:
-			local_head=prj_head
+			pass
 
 		if not prj_remote:
 		 	remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
@@ -271,12 +272,12 @@ def _sync_projects(cleanSync):
 					default_remote = rn
 					remote_fetch = default_remote.getAttribute('fetch')
 					break
-			mirror_head = "origin" + "/" + local_head
+			prj_mirror = "origin" + "/" + prj_head
 
-		tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(mirror_head)
+		tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(prj_mirror)
 		if None != tag_match:
-			mirror_head = tag_match.group(2)
-			local_head=None
+			prj_mirror = tag_match.group(2)
+			prj_head=None
 
 		if not prj_path:#XXX Some projects don't have path, so use the name as path.
 			logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
@@ -307,18 +308,18 @@ def _sync_projects(cleanSync):
 					tmpRet += _clone_prj(prj, remote_fetch, prj_path)
 
 			if tag_match == None:#branch
-				branch = local_head	
-				check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)
+				branch = prj_head	
+				check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head)
 				if 0 != run_cmd(check_branch_exists, True):#if branch not exists
-					cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_path, prj_path, local_head, mirror_head)
+					cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head, prj_mirror)
 					retCode += run_cmd(cmd)
 				else:
-					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, local_head)
+					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head)
 					retCode += run_cmd(cmd)
 					logging.warn("%s already exists\n" %branch)
 			else:#tag
-				branch = mirror_head
-				cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, mirror_head)
+				branch = prj_mirror
+				cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, prj_mirror)
 				retCode += run_cmd(cmd)
 
 			if cleanSync == True:

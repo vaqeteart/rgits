@@ -316,7 +316,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [20%] [2/10]
+* WAIT/FORWARD TODO [27%] [3/11]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -368,3 +368,11 @@ CLOSED: [2016-10-11 二 17:32]
 考虑先不实现多个remote的问题。因为多个remote与设计rgits的思想有些相悖。
 
 ** 考虑manifest.xml的扩展性问题，如何设计结构和类
+
+** DONE 考虑同步指定分支项目之后，其他项目默认分支的恢复问题。
+CLOSED: [2016-11-03 四 17:27]
+- State "DONE"       from "NEXT"       [2016-11-03 四 17:27]
+- State "NEXT"       from              [2016-10-26 三 09:27]
+下载指定分支的项目之后，其它项目分支应该仍旧为默认分支，但是目前而言分支仍旧停留在上次被指定的分支处。
+
+解决。
