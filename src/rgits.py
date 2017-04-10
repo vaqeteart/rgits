@@ -535,11 +535,19 @@ def do_cmd():
 	elif ("help" in sys.argv[1]):
 		retCode += show_help()
 	elif ("clone" in sys.argv[1]):
+		#TODO for command with multi word arg.
+		for i in range(1,len(sys.argv)):
+			if (len(sys.argv[i].split(' ')) > 1):
+				sys.argv[i] = "'" + sys.argv[i] + "'"
 		command = " ".join(sys.argv[1:])
 		retCode += do_clone(command)
 	elif ("sync" in sys.argv[1]):
 		retCode += do_sync()
 	else:
+		#TODO for command with multi word arg.
+		for i in range(1,len(sys.argv)):
+			if (len(sys.argv[i].split(' ')) > 1):
+				sys.argv[i] = "'" + sys.argv[i] + "'"
 		command = " ".join(sys.argv[1:])
 		if os.access(repo_path + "manifest.xml", os.F_OK):
 			retCode += do_gits(command)

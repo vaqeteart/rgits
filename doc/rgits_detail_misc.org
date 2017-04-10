@@ -16,16 +16,26 @@
 *** Project（项目）
 一个Project对应一个具有完整的功能集的产品，其中包含多个不同的子项目，每个子项目是用git独立管理的，但其功能并不是完整的，可能只是整个Project的某一子功能，或被其它产品线Project共享使用。
 
-比如，对于TV产品中欧洲的产品线，假设对应项目EU，其源码库路径结构中和电源管理相关的内容，在 =power= 子目录中，用git管理；而语言菜单资源用 =language= 做为独立的git子项目管理；其它子功能或者模块类似。对这些模块的开发基于git管理，各自独立，但是整体上他们又构成一个有机的整体，即每个git子项目特定状态的快照，综合起来恰巧构成了EU项目的某个版本。
+比如，对于TV产品中欧洲的产品线，假设对应项目EU，其源码库路径结构中和电源管理相关的内容，在 =power= 子目录中，用git管理形成独立的git子项目；而语言菜单资源用 =language= 做为独立的git子项目管理；其它子功能或者模块类似。对这些产品线中的子模块开发基于git管理，各自独立，但是整体上它们又可以按照特定的组合构成一个有机的整体（某类产品线项目），即某些git子项目特定状态的快照，综合起来恰巧构成了某个产品线项目（比如EU项目）的某个版本。
 
-对于Project，其中包含的功能模块对应的git子项目路径，在该Project对应的Manifest中描述。
+
+对于Project，其中包含的功能模块对应的git子项目路径的集合，在该Project对应的Manifest中描述。
+
+再举一个直观的例子：
+#+BEGIN_EXAMPLE
+项目1，包括A,B,C子模块。
+项目2，包括A,B,D子模块。
+子模块A,B,C,D各自用git独立管理。
+
+这样，将A,B,C,D的特定组合写到Manifest中，就构成了某个完成的的项目1，或者项目2。
+#+END_EXAMPLE
 
 *** rgits，git
 git是rgits工具运行背后最终会使用到的工具，rgits是对google开发的repo的模拟（所以名称上有r），它可同时处理多个git项目而非单个（所以名称上有gits）。
 
-如果一个Product中包含许多Project，而一个Project中又包含许多git子项目时，整套产品，各个产品线上的各个版本可能就会涉及到很多的git子项目，或者分支，标签等等，这样单纯用git管理这么多的git子项目非常复杂，所以这时候便可采用rgits进行管理。
+如果一个Product中包含许多Project，而一个Project中又包含许多git子项目时，整套产品各个产品线上的各个版本可能就会涉及到很多的git子项目，比如分支，标签等等，这样单纯用git管理这么多的git子项目非常复杂，所以这时候便可采用rgits进行管理。
 
-rgits对每个Product为其建立manifests集合，用manifests集合中的每个manifest.xml文件（文件名可能是别的名称）表示一条产品线，而其内容描述了该产品线上所包含的git子项目的组织策略。
+rgits对每个Product为其建立manifests集合，用manifests集合中的每个manifest.xml文件（文件名可能是别的名称）表示一条产品线Project，而其内容描述了该产品线上所包含的git子项目的组织策略。
 
 在日常用git进行开发的流程，在rgits中同样适用，因为rgits中管理了多个git子项目，而每个人同一时刻开发时，其实仅对某一个子模块对应的git子项目进行开发，所以通常情况下也都可像git项目那样，直接用git来开发rgits项目中的子项目。
 
@@ -123,7 +133,7 @@ $rgits.py setup
 + 编辑项目管理策略文件
 
   编辑 =manifests= 下的文件，用于描述管理策略，每一个文件代表一种管理配置策略，描述了一种项目组合方式。后面可以看到客户端初始化的时候，会通过参数选定需要的管理策略。
-
+  
 ***** 下面是一个手动创建服务端的库例子
 ****** 整体结构如下：
 #+BEGIN_SRC sh
@@ -211,16 +221,16 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 为保证后面的每个 =project= 能够支持特定的 =remote= 属性，这里我们强制规定 =remote list= 中第一个 =remote= 其内容是 =rgits= 的项目集合路径，而其他的 =remote= 是具体的git项目路径。就是说，第一个 =remote= 路径结合后面的 =project= 名称才构成可抓取的存在的git项目路径；而后面的 =remote= 就是直接可以被抓取的 “外部” git项目路径，不用拼接，一般会被某个 =project= 的 =remote= 属性引用。
 
 建议尽量不要为每个项目定制额外的 =remote=, 即建议 =manifest.xml= 中只有一个remote，因为若非如此，其实也会为批量处理带来麻烦。
-
-* 主要命令语法与详述
+** 客户端
+*** 主要命令语法与详述
 这里 =$repo_dir= 是 =rgits= 管理的目录，默认为 =./.gits=.
-** 初始化
-*** 语法
+**** 初始化
+***** 语法
 =init [ -u <initurl> [-b <branch>] [-m <manifest>] ]=
 
-*** 描述
+***** 描述
 初始化 =rgits= 客户端环境，建立好 =.gits= 目录，但是并没有对其中的 =.gits/projects= 项目集获取。
-**** 选项
+****** 选项
 + =-u= 必须指定，指定的是服务端的库集合根目录。 
 
 + =-b= 指定的分支要在服务端存在，默认为 =master= 
@@ -229,7 +239,7 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 
 如果没有选项和参数，则表示之前被初始化过，直接用之前初始化的参数进行，参数的获取是直接读取 =$repo_dir/manifests.xml= 中的内容。
 
-**** 原理
+****** 原理
 1. 初始化只更新 =manifests= 目录内容，根据 =-m= 选项创建相应的 =manifest.xml= 软链接。 
 2. 服务端的 =manifests= 是 =-u= 指定的 =initurl= 的子目录。
 3. 为保证初始化过程干净，每次初始化，会将之前的 =manifests= 内容删除，重新下载更新。
@@ -241,22 +251,22 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 
 执行期间，将git目录与其工作目录分开，并置于 =.gits/projects/= 对应目录中。
 
-*** 举例
-**** 从零开始初始化
+***** 举例
+****** 从零开始初始化
 #+BEGIN_SRC sh
 $rgits.py init -u ssh://127.0.0.1:/home/miracle/mygitrepo/tmp/rgits/src/server/example/demo_products.rgits -m default.xml
 #+END_SRC
 
-**** 在已经初始化过的基础上，用上次初始化的参数进行初始化
+****** 在已经初始化过的基础上，用上次初始化的参数进行初始化
 #+BEGIN_SRC sh
 $rgits.py init
 #+END_SRC
 
-** 同步
-*** 语法
+**** 同步
+***** 语法
 =sync [-c ]=
 
-*** 描述
+***** 描述
 =-c= 或 =--clean= 使用 =git remote update= 同步更新之前，运行 =git reset --hard=, =git clean -xdf=, 以及 =rm -fr <project>/.git/rebase-apply=,保证目录干净。
 
 该命令会在已有 =manifests= 的基础上对所有当前项目集内容使用 =git remote update= 进行同步更新。
@@ -285,30 +295,30 @@ $rgits.py init
 目前只能在根目录下对所有内容进行sync，不能对单个项目进行sync。
 不断输入密码？
 
-*** 举例
-**** 初始化之后同步
+***** 举例
+****** 初始化之后同步
 #+BEGIN_SRC sh
 $rgits.py sync
 #+END_SRC
 这样，会创建 =.gits/projects= 中的内容，并将对应项目工作路径导出到当前工作目录，即和 =.gits= 同级别的目录。
 
-** WAIT/FORWARD 克隆
+**** WAIT/FORWARD 克隆
 - State "WAIT/FORWARD" from "NEXT"       [2016-10-17 一 18:26] \\
   can't support multi remote.
 - State "NEXT"       from              [2016-10-17 一 18:26]
-*** 语法
+***** 语法
 =clone <local path>=
-*** 描述
+***** 描述
 对已有的本地rgits项目进行clone。clone之后的内容，和源内容一样，并且，clone后的remote端并不是源，而是源的remote端。
-*** 举例
-**** 对test的rgits进行clone
+***** 举例
+****** 对test的rgits进行clone
 #+BEGIN_SRC sh
 $mkdir test2 && cd test2
 $rgits.py clone ../test
 #+END_SRC
 这样会将test进行clone，到test2中，路径也可用绝对路径。
 
-** 其它
+**** 其它
 其它命令大多是git子命令，如果是在顶级目录中，则根据manifest.xml依次遍历所有git项目并执行，如果是在某一个子目录中，则对该子目录下所有git项目（可能不再manifest.xml）依次遍历执行。
 
 =reset --hard= 命令在顶级目录中的时候，如果缺失某个 =manifest.xml=, 则对其进行恢复。
@@ -316,7 +326,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [27%] [3/11]
+* WAIT/FORWARD TODO [21%] [3/14]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -367,8 +377,8 @@ CLOSED: [2016-10-11 二 17:32]
 
 考虑先不实现多个remote的问题。因为多个remote与设计rgits的思想有些相悖。
 
-** 考虑manifest.xml的扩展性问题，如何设计结构和类
-
+** NEXT 考虑manifest.xml的扩展性问题，如何设计结构和类
+- State "NEXT"       from              [2017-04-06 四 12:12]
 ** DONE 考虑同步指定分支项目之后，其他项目默认分支的恢复问题。
 CLOSED: [2016-11-03 四 17:27]
 - State "DONE"       from "NEXT"       [2016-11-03 四 17:27]
@@ -376,3 +386,56 @@ CLOSED: [2016-11-03 四 17:27]
 下载指定分支的项目之后，其它项目分支应该仍旧为默认分支，但是目前而言分支仍旧停留在上次被指定的分支处。
 
 解决。
+** NEXT rgits bug
+- State "NEXT"       from "LATER"      [2017-04-07 五 16:15]
+- State "LATER"      from "INBOX"      [2017-04-07 五 16:15]
+Capture Time:[2017-01-13 五 16:54]
+
+多个项目同时提交之后，
+#+BEGIN_SRC sh
+$rgits.py commit -m 'item1 item2'
+#+END_SRC
+
+汇报错，原因可能是因为 =-m= 后面有空格，暂时解决，将 =-m= 之类多字参数前后加上 "'".
+
+push之后，只能push第一次？
+#+BEGIN_EXAMPLE
+==========================================================
+root@1v4582767h.51mypc.cn's password: 
+Everything up-to-date
+__________________________________________________________
+<<command>>:git --git-dir=/media/sda6/study/mygitrepo/demo_products.rgits/.gits/projects/project2_path_in_rgits push
+==========================================================
+root@1v4582767h.51mypc.cn's password: 
+Everything up-to-date
+__________________________________________________________
+<<command>>:git --git-dir=/media/sda6/study/mygitrepo/demo_products.rgits/.gits/projects/project3_path_in_rgits push
+==========================================================
+fatal: 如果您当前分支的上游分支和您当前分支名不匹配，为推送到远程的
+上游分支，使用
+
+    git push origin HEAD:master
+
+为推送至远程同名分支，使用
+
+    git push origin project3_revision
+
+为了永久地选择任一选项，参见 'git help config' 中的 push.default。
+<<Error command>>:git --git-dir=/media/sda6/study/mygitrepo/demo_products.rgits/.gits/projects/project3_path_in_rgits push, <<return status>>:32768
+
+
+
+-----
+NOTICE 
+         1) For stop, Input 'Ctrl C'. 
+         2) For continue, wait 5 seconds
+-----
+====================
+Mon Apr 10 16:32:46 2017
+1 commands errors, list as following:
+====================
+[Error] Command:git --git-dir=/media/sda6/study/mygitrepo/demo_products.rgits/.gits/projects/project3_path_in_rgits push, Status:32768
+#+END_EXAMPLE
+** LATER 考虑添加保护模式
+- State "LATER"      from              [2017-04-10 一 14:01]
+默认使用保护模式，保护模式中的命令，运行的git命令之前会先检查是否rgits考虑到该git命令，如果考虑到了，就执行，否则会警告并退出，如果强制使用非保护模式的命令，则需要特殊选项。
