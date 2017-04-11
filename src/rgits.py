@@ -485,10 +485,14 @@ def do_gits(command):
 	for prj in manifest.projects:
 		prj_name=prj.getAttribute('name')
 		prj_path=prj.getAttribute('path')
+		prj_revision=prj.getAttribute('revision')
 
 		if not prj_path:#XXX Some projects don't have path, so use the name as path.
 			logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
 			prj_path=prj_name
+
+		if not prj_revision:
+			prj_revision=manifest.default[0].getAttribute('revision')
 
 		if prj_path:
 			if "reset --hard" in command:#TODO command.split()[0]
@@ -500,6 +504,12 @@ def do_gits(command):
 					retCode += run_cmd(cmd)
 				cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				retCode += run_cmd(cmd)
+			elif "push" in command:
+				#TODO should do push origin HEAD:branchname, ignore other options.
+				os.chdir(top_path + "/" + prj_path)
+				cmd = "git --git-dir=%s %s%s" %(repo_path + "projects/" + prj_path, "push origin HEAD:", prj_revision)
+				retCode += run_cmd(cmd)
+				os.chdir(top_path)
 			else:
 				#cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				os.chdir(top_path + "/" + prj_path)
