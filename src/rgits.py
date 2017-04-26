@@ -225,20 +225,56 @@ def _sync_manifests(manifestUrl, branch, manifestFile):
 
 	return retCode
 
-def _sync_projects(cleanSync):
-	retCode = 0
-	cachedFile = 'sync.cache'
-	cachedPrjs = []
-	manifest.parse_manifest(repo_path + "manifest.xml")
-
+def _get_prj_info(prj, manifest):
+	prj_name=prj.getAttribute('name')
+	prj_path=prj.getAttribute('path')
+	prj_remote=prj.getAttribute('remote')
+	prj_revision=prj.getAttribute('revision')
 	default_remote = manifest.remote[0]
 	for rn in manifest.remote:
 		if manifest.default[0].getAttribute('remote') == rn.getAttribute('name'):
 			default_remote = rn
 			break
+	default_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
+	default_revision=manifest.default[0].getAttribute('revision')
+	prj_remote_tag_head=None
 
-	default_head=manifest.default[0].getAttribute('revision')
-	default_mirror=manifest.default[0].getAttribute('remote')+ "/" + default_head
+	if not prj_remote:
+		prj_remote = default_remote.getAttribute('name')
+		prj_fetch = default_fetch
+	else:
+		for rn in manifest.remote:
+			if prj_remote == rn.getAttribute('name'):
+				prj_fetch = rn.getAttribute('fetch')
+				break
+
+	if not prj_revision:
+		prj_revision = default_revision
+
+	prj_remote_head = prj_remote + "/" + prj_revision
+
+	prj_remote_tag_head = re.compile(r'^.*(refs/tags/)(.*)$').match(prj_remote_head)
+	if None != prj_remote_tag_head:
+		prj_remote_head = prj_remote_tag_head.group(2)
+
+	if not prj_path:#XXX Some projects don't have path, so use the name as path.
+		logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
+		prj_path=prj_name
+	return {
+		"name":prj_name, 
+		"path":prj_path, 
+		"remote":prj_remote, 
+		"revision": prj_revision,
+		"fetch":prj_fetch,
+		"remote_head":prj_remote_head,
+		"remote_tag_head":prj_remote_tag_head
+		}
+
+def _sync_projects(cleanSync):
+	retCode = 0
+	cachedFile = 'sync.cache'
+	cachedPrjs = []
+	manifest.parse_manifest(repo_path + "manifest.xml")
 
 	if os.access(cachedFile, os.F_OK):#means there's error when last sync, this file contains the success synced projects.
 		rfile = open(cachedFile)
@@ -252,94 +288,82 @@ def _sync_projects(cleanSync):
 
 	for prj in manifest.projects:
 		tmpRet = 0
-		prj_mirror = default_mirror
-		prj_name=prj.getAttribute('name')
-		prj_path=prj.getAttribute('path')
-		prj_remote=prj.getAttribute('remote')
-		prj_head=prj.getAttribute('revision')
-		remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
-
-		if not prj_head:
-			prj_head = default_head
-		else:
-			pass
-
-		if not prj_remote:
-		 	remote_fetch = default_remote.getAttribute('fetch') + "/projects/" + prj_path
-		else:
-			for rn in manifest.remote:
-				if prj_remote == rn.getAttribute('name'):
-					default_remote = rn
-					remote_fetch = default_remote.getAttribute('fetch')
-					break
-			prj_mirror = "origin" + "/" + prj_head
-
-		tag_match = re.compile(r'^.*(refs/tags/)(.*)$').match(prj_mirror)
-		if None != tag_match:
-			prj_mirror = tag_match.group(2)
-			prj_head=None
-
-		if not prj_path:#XXX Some projects don't have path, so use the name as path.
-			logging.warn("'%s' don't have 'path' property, use 'name' instead." %prj_name)
-			prj_path=prj_name
+		prj_info=_get_prj_info(prj, manifest)
 		
-		if prj_path:
-			if prj_path in cachedPrjs:
-				logging.warn("'%s' shows that project in %s is synced successed before, skip it." %(cachedFile, prj_path))
-				continue
+		if prj_info["path"] in cachedPrjs:
+			logging.warn("'%s' shows that project in %s is synced successed before, skip it." %(cachedFile, prj_path))
+			continue
 
-			#check project change
-			if (not os.access(repo_path + "projects/" + prj_path, os.F_OK)) or (not os.access( prj_path, os.F_OK)):
-				if os.access(prj_path, os.F_OK):
-					logging.info("Will remove previous work files %s.\n" %(prj_path))#XXX ask?
-					cmd = "rm -rf %s" %(prj_path)
-					tmpRet += run_cmd(cmd)
-					tmpRet += _clone_prj(prj, remote_fetch, prj_path)
-				elif os.access(repo_path + "projects/" + prj_path, os.F_OK):
-					logging.info("Will restore work files from local repo %s.\n" %(prj_path))#XXX ask?
-					cmd = "mkdir -p %s" %(prj_path)
-					tmpRet += run_cmd(cmd)
-					cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_path, prj_path)
-					tmpRet += run_cmd(cmd)
-					cmd = "echo \"gitdir: %s\" > %s/.git" %(repo_path + "projects/" + prj_path, prj_path)
-					tmpRet += run_cmd(cmd)
-				else:
-					logging.info("%s will be cloned because not exised.\n" %(prj_path))#XXX ask?
-					tmpRet += _clone_prj(prj, remote_fetch, prj_path)
+		###Check project change
+		#1. No project git dir, but have work dir.
+		#2. Have project git dir, but no work dir.
+		#3. No project git dir, and no work dir.
+		if (not os.access(repo_path + "projects/" + prj_info["path"], os.F_OK)) or (not os.access( prj_info["path"], os.F_OK)):
+			if os.access(prj_info["path"], os.F_OK):
+				#No project git dir but have local work dir.
+				logging.info("Will remove previous work files %s.\n" %(prj_info["path"]))#XXX ask?
+				cmd = "rm -rf %s" %(prj_info["path"])
+				tmpRet += run_cmd(cmd)
+				tmpRet += _clone_prj(prj, prj_info["fetch"], prj_info["path"])
+			elif os.access(repo_path + "projects/" + prj_info["path"], os.F_OK):
+				#No local work dir but have project git dir.
+				logging.info("Will restore work files from local repo %s.\n" %(prj_info["path"]))#XXX ask?
+				cmd = "mkdir -p %s" %(prj_info["path"])
+				tmpRet += run_cmd(cmd)
+				cmd = "git --git-dir=%s --work-tree=%s reset --hard" %(repo_path + "projects/" + prj_info["path"], prj_info["path"])
+				tmpRet += run_cmd(cmd)
+				cmd = "echo \"gitdir: %s\" > %s/.git" %(repo_path + "projects/" + prj_info["path"], prj_info["path"])
+				tmpRet += run_cmd(cmd)
+			else:
+				#No project git dir and no local work dir, often the first time for sync.
+				logging.info("%s will be cloned because not exised.\n" %(prj_info["path"]))#XXX ask?
+				tmpRet += _clone_prj(prj, prj_info["fetch"], prj_info["path"])
 
-			if tag_match == None:#branch
-				branch = prj_head	
-				check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head)
-				if 0 != run_cmd(check_branch_exists, True):#if branch not exists
-					cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head, prj_mirror)
+		###Check out branch and tag.
+		if prj_info["remote_tag_head"] == None:#branch
+			branch_name = prj_info["revision"]
+			check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_info["path"], 
+					prj_info["path"], branch_name)
+			if 0 != run_cmd(check_branch_exists, True):#if branch not exists
+				check_remote_branch_exists = "git --git-dir=%s --work-tree=%s branch -r|grep -q %s" %(repo_path + "projects/" + prj_info["path"], 
+						prj_info["path"], branch_name)
+				if 0 != run_cmd(check_remote_branch_exists, True):#XXX if remote branch not exists, create it in remote.
+					logging.info("branch %s not exist in remote, create for remote.\n" %(branch_name))#XXX ask?
+					cmd = "git --git-dir=%s --work-tree=%s push %s HEAD:%s" %(repo_path + "projects/" + prj_info["path"],
+							prj_info["path"], prj_info["remote"], branch_name)
 					retCode += run_cmd(cmd)
-				else:
-					cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, prj_head)
-					retCode += run_cmd(cmd)
-					logging.warn("%s already exists\n" %branch)
-			else:#tag
-				branch = prj_mirror
-				cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_path, prj_path, prj_mirror)
+
+				cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path + "projects/" + prj_info["path"], 
+						prj_info["path"], branch_name, prj_info["remote_head"])
 				retCode += run_cmd(cmd)
+			else:
+				cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_info["path"], prj_info["path"], branch_name)
+				retCode += run_cmd(cmd)
+				logging.warn("%s already exists\n" %branch_name)
+		else:#tag
+			tag_name = prj_info["remote_head"]
+			cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path + "projects/" + prj_info["path"], prj_info["path"], tag_name)
+			retCode += run_cmd(cmd)
 
-			if cleanSync == True:
-				if os.access(repo_path + "projects/" + prj_path, os.F_OK):#remove previous rebase
-					cmd = "rm -fr %s/rebase-apply" %(repo_path + "projects/" + prj_path)
-					tmpRet += run_cmd(cmd)
+		if cleanSync == True:
+			if os.access(repo_path + "projects/" + prj_info["path"], os.F_OK):#remove previous rebase
+				cmd = "rm -fr %s/rebase-apply" %(repo_path + "projects/" + prj_info["path"])
+				tmpRet += run_cmd(cmd)
 
-				#TODO How to manage projects which is not in manifest, and the 'copyed' command in manifest.xml?
+			#TODO How to manage projects which is not in manifest, and the 'copyed' command in manifest.xml?
 
-			cmd = "git --git-dir=%s --work-tree=%s remote update" %(repo_path + "projects/" + prj_path, prj_path)
-			tmpRet += run_cmd(cmd)
-			os.chdir(top_path + "/" + prj_path)
-			cmd = "git --git-dir=%s rebase %s" %(repo_path + "projects/" + prj_path, branch)
-			tmpRet += run_cmd(cmd)
-			os.chdir(top_path)
+		###For current branch, it like pull --rebase, but in factly, do it by:remote update(all remote branches), and rebase, 
+		cmd = "git --git-dir=%s --work-tree=%s remote update" %(repo_path + "projects/" + prj_info["path"], prj_info["path"])
+		tmpRet += run_cmd(cmd)
+		os.chdir(top_path + "/" + prj_info["path"])
+		cmd = "git --git-dir=%s rebase %s" %(repo_path + "projects/" + prj_info["path"], prj_info["remote_head"])
+		tmpRet += run_cmd(cmd)
+		os.chdir(top_path)
 
-			if tmpRet == 0:
-				wfile.write(prj_path+'\n')
-				wfile.flush()
-				os.fsync(wfile)
+		if tmpRet == 0:
+			wfile.write(prj_info["path"]+'\n')
+			wfile.flush()
+			os.fsync(wfile)
 		retCode += tmpRet
 
 	wfile.close()
@@ -504,12 +528,6 @@ def do_gits(command):
 					retCode += run_cmd(cmd)
 				cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				retCode += run_cmd(cmd)
-			elif "push" in command:
-				#TODO should do push origin HEAD:branchname, ignore other options.
-				os.chdir(top_path + "/" + prj_path)
-				cmd = "git --git-dir=%s %s%s" %(repo_path + "projects/" + prj_path, "push origin HEAD:", prj_revision)
-				retCode += run_cmd(cmd)
-				os.chdir(top_path)
 			else:
 				#cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				os.chdir(top_path + "/" + prj_path)

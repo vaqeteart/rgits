@@ -253,6 +253,9 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 
 ***** 举例
 ****** 从零开始初始化
+:PROPERTIES:
+:ID:       1981445f-3c63-419c-8897-3dc0dc8f64e7
+:END:
 #+BEGIN_SRC sh
 $rgits.py init -u ssh://127.0.0.1:/home/miracle/mygitrepo/tmp/rgits/src/server/example/demo_products.rgits -m default.xml
 #+END_SRC
@@ -262,6 +265,9 @@ $rgits.py init -u ssh://127.0.0.1:/home/miracle/mygitrepo/tmp/rgits/src/server/e
 $rgits.py init
 #+END_SRC
 
+***** 问题
+****** NEXT 如何处理tag的问题？
+- State "NEXT"       from              [2017-04-26 三 14:42]
 **** 同步
 ***** 语法
 =sync [-c ]=
@@ -272,7 +278,7 @@ $rgits.py init
 该命令会在已有 =manifests= 的基础上对所有当前项目集内容使用 =git remote update= 进行同步更新。
 
 进行更新之前，如下情况：
-+ 若项目库路径 =.gits/projects/<project>= 存在且工作路径 =./<project>= 存在, 不做任何额外操作。
++ 若项目库路径 =.gits/projects/<project>= 存在且工作路径 =./<project>= 存在, 仅将服务端内容同步过来，不做任何额外操作。
 + 若项目库路径 =.gits/projects/<project>= 存在且工作路径 =./<project>= 不存在, 创建 =./<project>=, 并根据 =./.gits/projects/<project>= 对其恢复
 + 若项目库路径 =.gits/projects/<project>= 不存在， 删除工作路径 =./<project>= （如果存在）， 再对 =.gits/projects/<project>= 进行 =git clone= 并建立工作路径 =./<project>= 。
 
@@ -288,7 +294,7 @@ $rgits.py init
 关于分支和tag的处理：
 如果 =.gits/manifest.xml= 指定的分支名称是tag名称，则直接执行类似 =git checkout <tag>=
 
-如果 =.gits/manifest.xml= 指定的分支名称是branch名称，若本地有该分支则类似对tag的处理，如果本地没有，则执行 =git checkout -b <branch> origin/<branch>=
+如果 =.gits/manifest.xml= 指定的分支名称是branch名称，若本地有该分支则类似对tag的处理，如果本地没有，则执行 =git checkout -b <branch> origin/<branch>=, 如果远端没有相应的分支，则创建本地分支之前，先用 =git push origin HEAD:branch= 类似的方式在远端创建一个这个分支。
 
 执行期间，将git目录与其工作目录分开，并置于 =.gits/projects/= 对应目录中。
 
@@ -302,6 +308,19 @@ $rgits.py sync
 #+END_SRC
 这样，会创建 =.gits/projects= 中的内容，并将对应项目工作路径导出到当前工作目录，即和 =.gits= 同级别的目录。
 
+***** 问题
+****** DONE 为什么服务端更新后，再次sync会同步不到？
+CLOSED: [2017-04-26 三 14:42]
+- State "DONE"       from "NEXT"       [2017-04-26 三 14:42]
+- State "NEXT"       from              [2017-04-26 三 10:04]
+=rgits.py sync= 相当于对每一个项目进行 =git remote update= 和 =git rebase <remotebranch>=
+****** LATER 如何处理tag的问题？
+- State "LATER"      from "NEXT"       [2017-04-26 三 16:09]
+- State "NEXT"       from              [2017-04-26 三 14:42]
+
+
+****** 注意
+如果只对当前已经工作了的分支，那么最好用pull。
 **** WAIT/FORWARD 克隆
 - State "WAIT/FORWARD" from "NEXT"       [2016-10-17 一 18:26] \\
   can't support multi remote.
@@ -316,8 +335,28 @@ $rgits.py sync
 $mkdir test2 && cd test2
 $rgits.py clone ../test
 #+END_SRC
-这样会将test进行clone，到test2中，路径也可用绝对路径。
+这样会将test进行clone，到test2中，路径也可用绝对路径。假设test1的remote源是remote1, 克隆成test2之后，test2的源也是remote1而非test1。克隆之后的test2和test1相对独立。
 
+目前因为批量管理本身就是建立在“集中式”的基础上，所以，我们不提供克隆出独立的server端功能，并且克隆的远端克隆的源路径，而是克隆源的远端。
+
+**** LATER push
+- State "LATER"      from              [2017-04-26 三 09:46]
+***** 语法
+=push=
+***** 描述
+=git= 命令。
+***** 举例
+****** 将当前工作推送到远端
+#+BEGIN_SRC sh
+$rgits.py push
+#+END_SRC
+***** 问题
+****** DONE 为什么对于默认检出非master的project，新的更改无法push到服务端的非master分支？
+CLOSED: [2017-04-26 三 16:11]
+- State "DONE"       from "NEXT"       [2017-04-26 三 16:11]
+- State "NEXT"       from              [2017-04-26 三 16:11]
+初始化时，设置好远端分支，以及当前分支的上游就行了。
+**** info
 **** 其它
 其它命令大多是git子命令，如果是在顶级目录中，则根据manifest.xml依次遍历所有git项目并执行，如果是在某一个子目录中，则对该子目录下所有git项目（可能不再manifest.xml）依次遍历执行。
 
@@ -326,7 +365,7 @@ $rgits.py clone ../test
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [21%] [3/14]
+* WAIT/FORWARD TODO [18%] [3/16]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -439,3 +478,7 @@ Mon Apr 10 16:32:46 2017
 ** LATER 考虑添加保护模式
 - State "LATER"      from              [2017-04-10 一 14:01]
 默认使用保护模式，保护模式中的命令，运行的git命令之前会先检查是否rgits考虑到该git命令，如果考虑到了，就执行，否则会警告并退出，如果强制使用非保护模式的命令，则需要特殊选项。
+** LATER 是否需要兼容repo?
+- State "LATER"      from              [2017-04-26 三 14:44]
+** LATER 如何设计测试程序？
+- State "LATER"      from              [2017-04-26 三 15:29]
