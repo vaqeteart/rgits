@@ -339,7 +339,9 @@ $rgits.py clone ../test
 
 目前因为批量管理本身就是建立在“集中式”的基础上，所以，我们不提供克隆出独立的server端功能，并且克隆的远端克隆的源路径，而是克隆源的远端。
 
-**** LATER push
+**** DONE push
+CLOSED: [2017-04-26 三 16:22]
+- State "DONE"       from "LATER"      [2017-04-26 三 16:22]
 - State "LATER"      from              [2017-04-26 三 09:46]
 ***** 语法
 =push=
@@ -363,11 +365,12 @@ CLOSED: [2017-04-26 三 16:11]
 =reset --hard= 命令在顶级目录中的时候，如果缺失某个 =manifest.xml=, 则对其进行恢复。
 
 * 使用举例
-** 典型工作流程
+** LATER 典型工作流程
+- State "LATER"      from              [2017-04-26 三 16:22]
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [18%] [3/16]
+* WAIT/FORWARD TODO [25%] [4/16]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -427,7 +430,9 @@ CLOSED: [2016-11-03 四 17:27]
 下载指定分支的项目之后，其它项目分支应该仍旧为默认分支，但是目前而言分支仍旧停留在上次被指定的分支处。
 
 解决。
-** NEXT rgits bug
+** DONE rgits bug
+CLOSED: [2017-04-26 三 16:21]
+- State "DONE"       from "NEXT"       [2017-04-26 三 16:21]
 - State "NEXT"       from "LATER"      [2017-04-07 五 16:15]
 - State "LATER"      from "INBOX"      [2017-04-07 五 16:15]
 Capture Time:[2017-01-13 五 16:54]
