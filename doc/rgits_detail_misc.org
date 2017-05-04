@@ -370,7 +370,7 @@ CLOSED: [2017-04-26 三 16:11]
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [25%] [4/16]
+* WAIT/FORWARD TODO [23%] [4/17]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -489,3 +489,7 @@ Mon Apr 10 16:32:46 2017
 - State "LATER"      from              [2017-04-26 三 14:44]
 ** LATER 如何设计测试程序？
 - State "LATER"      from              [2017-04-26 三 15:29]
+** LATER =do_gits= 和 =do_subgits= 行为能否尽量一致？
+- State "LATER"      from              [2017-05-03 三 16:32]
+** =rgits.py status= 这类的函数能否批量输出的时候，以汇总的形式输出？
+添加一个parse函数，比如 =git status --porcelain=
