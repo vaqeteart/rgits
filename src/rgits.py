@@ -4,6 +4,8 @@ import time
 import sys
 import commands
 import getopt
+import getpass
+import pexpect
 import re
 import logging
 from xml.dom import minidom
@@ -24,12 +26,29 @@ class Manifest(object):
 		self.remote = root.getElementsByTagName('remote')
 		self.default = root.getElementsByTagName('default')
 
+def run_normal_cmd(cmd, ignoreError=False):
+	retCode = os.system(cmd)
+	return retCode
+
+def run_expect_cmd(cmd, ignoreError=False):
+	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd))
+	child.expect('password:')
+	child.sendline(pwd)
+	child.wait()
+	out=child.read()
+	print out
+	return child.exitstatus
+
 def run_cmd(cmd, ignoreError=False):
 	logging.info("_" * (len("<<command>>:%s" %cmd) >> 1 ))
 	logging.info("<<command>>:%s" %cmd)
 	logging.info("=" * (len("<<command>>:%s" %cmd) >> 1))
 	wt=5
-	retCode = os.system(cmd)
+	if pwd == '':
+		retCode = run_normal_cmd(cmd)
+	else:
+		retCode = run_expect_cmd(cmd)
+
 	if ignoreError == False and retCode != 0:
 		logging.error("<<Error command>>:%s, <<return status>>:%d" %(cmd, retCode))
 		logging.error("\n\n\n-----\nNOTICE \n         1) For stop, Input 'Ctrl C'. \n         2) For continue, wait %d seconds\n-----" %wt)
@@ -39,16 +58,31 @@ def run_cmd(cmd, ignoreError=False):
 	logging.debug("command:%s, return status:%d" %(cmd, retCode))
 	return retCode
 
+def commands_normal_cmd(cmd):
+	return commands.getstatusoutput(cmd)
+
+def commands_expect_cmd(cmd):
+	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd))
+	child.expect('password:')
+	child.sendline(pwd)
+	child.wait()
+	retCode = child.exitstatus
+	output=child.read()
+	return retCode,output
+
 def commands_cmd(cmd):
 	wt=5
-	retCode,output = commands.getstatusoutput(cmd)
+	if pwd == '':
+		retCode,output = commands_normal_cmd(cmd)
+	else:
+		retCode,output = commands_expect_cmd(cmd)
 	logging.debug("%s" %cmd)
 	logging.debug("return:%d" %retCode)
 	if retCode != 0:
 		logging.error("\n\n\n-----\nNOTICE \n         1) For stop, Input 'Ctrl C'. \n         2) For continue, wait %d seconds\n-----" %wt)
 		err_cmds.append((cmd,retCode))
 		retCode = -1
-	
+
 	return retCode,output
 
 def show_help():
@@ -173,7 +207,7 @@ def _clone_prj(prj, prj_repo, prj_path):
 	retCode += run_cmd(cmd)
 	cmd = "rm -rf %s" %(repo_path + "projects/" + prj_path)
 	retCode += run_cmd(cmd)
-	
+
 	cmd = "git clone --separate-git-dir=%s %s %s" %(repo_path + "projects/" + prj_path, prj_repo, prj_path)
 	retCode += run_cmd(cmd)
 
@@ -289,7 +323,7 @@ def _sync_projects(cleanSync):
 	for prj in manifest.projects:
 		tmpRet = 0
 		prj_info=_get_prj_info(prj, manifest)
-		
+
 		if prj_info["path"] in cachedPrjs:
 			logging.warn("'%s' shows that project in %s is synced successed before, skip it." %(cachedFile, prj_path))
 			continue
@@ -427,7 +461,7 @@ def do_clone(command):
 		retCode += run_cmd(cmd)
 		cmd = "ln -s %s %s" %(repo_path + "/manifests/" + manifestFile, repo_path + "manifest.xml")#TODO
 		retCode += run_cmd(cmd)
-		
+
 		manifest.parse_manifest(repo_path + "manifest.xml")
 		mirror_head=manifest.default[0].getAttribute('remote')+ "/" + manifest.default[0].getAttribute('revision')
 		local_head=manifest.default[0].getAttribute('revision')
@@ -626,11 +660,19 @@ proj_surfix = proj_surfix1
 #logging.basicConfig(format='%(name)s:%(asctime)s--%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s>>>:%(message)s', level=logging.DEBUG)
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 err_cmds = []
+pwd=""
 
 if __name__ == "__main__":
 	retCode = 0
 	try:
 		logging.debug("Input argv: %s\n", sys.argv)
+		pwd=getpass.getpass("Password(Ignore by 'ENTER'):")
+
+		if pwd == '':
+			print "No expect password provided."
+		else:
+			print "With expect password provided."
+
 		if len(sys.argv) == 1:
 			retCode += -1
 			raise(getopt.GetoptError("Command parameter error!"))
