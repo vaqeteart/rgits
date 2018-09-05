@@ -26,28 +26,35 @@ class Manifest(object):
 		self.remote = root.getElementsByTagName('remote')
 		self.default = root.getElementsByTagName('default')
 
-def run_normal_cmd(cmd, ignoreError=False):
-	retCode = os.system(cmd)
-	return retCode
+def run_expect(cmd, expect_str="password:"):
+	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd), timeout=None)
+	child.delaybeforesend=0.05 #in case send password to fast before terminal close echo.
+	child.logfile_read=sys.stdout
+	#index = child.expect([expect_str,pexpect.EOF, pexpect.TIMEOUT])
+	index = child.expect([expect_str,pexpect.EOF]) #Will no TIMEOUT except if here.
+	if 0 == index:
+		child.sendline(pwd)
+		child.expect(pexpect.EOF)
+		time.sleep(0.1)
+		if child.isalive():
+			chile.wait()
+	elif 1 == index:
+		if child.isalive():
+			chile.wait()
+	#elif 2 == index:
+	#	logging.debug("exception should be time out")
 
-def run_expect_cmd(cmd, ignoreError=False):
-	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd))
-	child.expect('password:')
-	child.sendline(pwd)
-	child.wait()
-	out=child.read()
-	print out
-	return child.exitstatus
+	logging.debug("command:%s, return status:%d" %(cmd, retCode))
+	return child.before,child.exitstatus
 
-def run_cmd(cmd, ignoreError=False):
+def run_cmd(cmd, expect_str="password:", ignoreError=False):
 	logging.info("_" * (len("<<command>>:%s" %cmd) >> 1 ))
 	logging.info("<<command>>:%s" %cmd)
 	logging.info("=" * (len("<<command>>:%s" %cmd) >> 1))
 	wt=5
-	if pwd == '':
-		retCode = run_normal_cmd(cmd)
-	else:
-		retCode = run_expect_cmd(cmd)
+
+	out,retCode = run_expect(cmd,expect_str)
+	#print out
 
 	if ignoreError == False and retCode != 0:
 		logging.error("<<Error command>>:%s, <<return status>>:%d" %(cmd, retCode))
@@ -56,26 +63,11 @@ def run_cmd(cmd, ignoreError=False):
 		retCode = -1
 		time.sleep(wt)
 	logging.debug("command:%s, return status:%d" %(cmd, retCode))
+
 	return retCode
 
-def commands_normal_cmd(cmd):
-	return commands.getstatusoutput(cmd)
-
-def commands_expect_cmd(cmd):
-	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd))
-	child.expect('password:')
-	child.sendline(pwd)
-	child.wait()
-	retCode = child.exitstatus
-	output=child.read()
-	return retCode,output
-
-def commands_cmd(cmd):
-	wt=5
-	if pwd == '':
-		retCode,output = commands_normal_cmd(cmd)
-	else:
-		retCode,output = commands_expect_cmd(cmd)
+def commands_cmd(cmd, expect_str="password:"):
+	out,retCode = run_expect(cmd,expect_str)
 	logging.debug("%s" %cmd)
 	logging.debug("return:%d" %retCode)
 	if retCode != 0:
@@ -83,7 +75,7 @@ def commands_cmd(cmd):
 		err_cmds.append((cmd,retCode))
 		retCode = -1
 
-	return retCode,output
+	return retCode,out
 
 def show_help():
 	print "                                      RGITS Manual"
@@ -242,7 +234,7 @@ def _sync_manifests(manifestUrl, branch, manifestFile):
 
 	if tag_match == None:#branch
 		check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
-		if 0 != run_cmd(check_branch_exists, True):#if branch not exists
+		if 0 != run_cmd(check_branch_exists, ignoreError=True):#if branch not exists
 			cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch, "origin/"+branch)
 			retCode += run_cmd(cmd)
 		else:
@@ -325,7 +317,7 @@ def _sync_projects(cleanSync):
 		prj_info=_get_prj_info(prj, manifest)
 
 		if prj_info["path"] in cachedPrjs:
-			logging.warn("'%s' shows that project in %s is synced successed before, skip it." %(cachedFile, prj_path))
+			logging.warn("'%s' shows that project in %s is synced successed before, skip it." %(cachedFile, prj_info["path"]))
 			continue
 
 		###Check project change
@@ -358,10 +350,10 @@ def _sync_projects(cleanSync):
 			branch_name = prj_info["revision"]
 			check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path + "projects/" + prj_info["path"], 
 					prj_info["path"], branch_name)
-			if 0 != run_cmd(check_branch_exists, True):#if branch not exists
+			if 0 != run_cmd(check_branch_exists, ignoreError=True):#if branch not exists
 				check_remote_branch_exists = "git --git-dir=%s --work-tree=%s branch -r|grep -q %s" %(repo_path + "projects/" + prj_info["path"], 
 						prj_info["path"], branch_name)
-				if 0 != run_cmd(check_remote_branch_exists, True):#XXX if remote branch not exists, create it in remote.
+				if 0 != run_cmd(check_remote_branch_exists, ignoreError=True):#XXX if remote branch not exists, create it in remote.
 					logging.info("branch %s not exist in remote, create for remote.\n" %(branch_name))#XXX ask?
 					cmd = "git --git-dir=%s --work-tree=%s push %s HEAD:%s" %(repo_path + "projects/" + prj_info["path"],
 							prj_info["path"], prj_info["remote"], branch_name)
@@ -409,7 +401,7 @@ def _sync_projects(cleanSync):
 def do_init():
 	retCode = 0
 	try:
-		initUrl, manifestFile, branch = None, "default.xml", "master" 
+		initUrl, manifestFile, branch = None, "default.xml", "master"
 
 		opts, args = getopt.getopt(sys.argv[2:], 'u:m:b:', ['url=', 'manifest=', 'branch='])
 		if len(args) != 0:
@@ -443,8 +435,13 @@ def do_init():
 		sys.exit(retCode)
 	return retCode
 
-def do_clone(command):
+def do_clone():
+#TODO for command with multi word arg.
 	retCode = 0
+	command = ""
+	for i in range(1,len(sys.argv)):
+		command = "'" + sys.argv[i] + "' "
+
 	cachedFile = 'clone.cache'
 	cachedPrjs = []
 
@@ -537,6 +534,23 @@ def do_sync():
 	retCode += _sync_projects(cleanSync)
 	return retCode
 
+def do_test():
+	pass
+
+
+def do_inter():
+#TODO for command with multi word arg.
+	retCode=0
+	for i in range(1,len(sys.argv)):
+		if (len(sys.argv[i].split(' ')) > 1):
+			sys.argv[i] = "'" + sys.argv[i] + "'"
+	command = " ".join(sys.argv[1:])
+	if os.access(repo_path + "manifest.xml", os.F_OK):
+		retCode += do_gits(command)
+	else:
+		retCode += do_subgits(command)
+	return retCode
+
 def do_gits(command):
 	retCode =  0
 	manifest.parse_manifest(repo_path + "manifest.xml")
@@ -592,29 +606,11 @@ def do_subgits(command):
 def do_cmd():
 	'''git'''
 	retCode=0
-	if ("init" in sys.argv[1]):
-		retCode += do_init()
-	elif ("help" in sys.argv[1]):
-		retCode += show_help()
-	elif ("clone" in sys.argv[1]):
-		#TODO for command with multi word arg.
-		for i in range(1,len(sys.argv)):
-			if (len(sys.argv[i].split(' ')) > 1):
-				sys.argv[i] = "'" + sys.argv[i] + "'"
-		command = " ".join(sys.argv[1:])
-		retCode += do_clone(command)
-	elif ("sync" in sys.argv[1]):
-		retCode += do_sync()
+#TODO map command not if branches.
+	if sys.argv[1] in rgits_cmd:
+		retCode += rgits_cmd[sys.argv[1]]()
 	else:
-		#TODO for command with multi word arg.
-		for i in range(1,len(sys.argv)):
-			if (len(sys.argv[i].split(' ')) > 1):
-				sys.argv[i] = "'" + sys.argv[i] + "'"
-		command = " ".join(sys.argv[1:])
-		if os.access(repo_path + "manifest.xml", os.F_OK):
-			retCode += do_gits(command)
-		else:
-			retCode += do_subgits(command)
+		retCode = do_inter()
 	return retCode
 
 def log_err():
@@ -647,18 +643,19 @@ def log_err():
 
 ######Main function.######
 top_path = os.getcwd()
-repo_dir1 = ".gits/"
-repo_dir2 = ".repo/"
-repo_dir = repo_dir1
-repo_path1 = top_path + "/" + repo_dir1
-repo_path2 = top_path + "/" + repo_dir2
-repo_path = repo_path1
+#repo_dir = ".repo/"
+repo_dir = ".gits/"
+repo_path = top_path + "/" + repo_dir
 manifest = Manifest()
-proj_surfix1 = ""
-proj_surfix2 = ".git"
-proj_surfix = proj_surfix1
-#logging.basicConfig(format='%(name)s:%(asctime)s--%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s>>>:%(message)s', level=logging.DEBUG)
-logging.basicConfig(format='%(message)s', level=logging.INFO)
+logging.basicConfig(format='%(name)s:%(asctime)s--%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s>>>:%(message)s', level=logging.DEBUG)
+#logging.basicConfig(format='%(message)s', level=logging.INFO)
+rgits_cmd = {
+	"help":show_help,
+	"init":do_init,
+	"clone":do_clone,
+	"sync":do_sync,
+	"test":do_test,
+}
 err_cmds = []
 pwd=""
 

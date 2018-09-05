@@ -111,7 +111,10 @@ demo_prod1.rgits/
 其中 =manifests=, 描述了项目管理策略； projects包含组成项目的各个git子项目。
 
 *** 初始化库内容
-**** 自动初始化
+**** NEXT 自动初始化
+:LOGBOOK:
+- State "NEXT"       from              [2018-09-05 三 14:19]
+:END:
 会自动遍历并根据所有 =manifests= 中文件的内容，初始化 =projects= 。但是目前这个还正在考虑，暂未实现。
 
 #+BEGIN_SRC sh
@@ -224,20 +227,23 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 ** 客户端
 *** 主要命令语法与详述
 这里 =$repo_dir= 是 =rgits= 管理的目录，默认为 =./.gits=.
-**** 初始化
+**** TODO 初始化
+:LOGBOOK:
+- State "TODO"       from              [2018-09-05 三 14:22]
+:END:
 ***** 语法
 =init [ -u <initurl> [-b <branch>] [-m <manifest>] ]=
 
 ***** 描述
 初始化 =rgits= 客户端环境，建立好 =.gits= 目录，但是并没有对其中的 =.gits/projects= 项目集获取。
 ****** 选项
-+ =-u= 必须指定，指定的是服务端的库集合根目录。 
++ =-u= 最开始必须被指定，指定的是服务端的库集合根目录。 
 
 + =-b= 指定的分支要在服务端存在，默认为 =master= 
 
 + =-m= 指定的是采用的 =manifests.xml= 的名字, 默认为 =default.xml= 。
 
-如果没有选项和参数，则表示之前被初始化过，直接用之前初始化的参数进行，参数的获取是直接读取 =$repo_dir/manifests.xml= 中的内容。
+如果没有选项和参数，则表示之前被初始化过（即当前存在 =$repo_dir= 目录），直接用之前初始化的参数进行，参数的获取是直接读取 =$repo_dir/manifests.xml= 中的内容。
 
 ****** 原理
 1. 初始化只更新 =manifests= 目录内容，根据 =-m= 选项创建相应的 =manifest.xml= 软链接。 
@@ -268,6 +274,14 @@ $rgits.py init
 ***** 问题
 ****** NEXT 如何处理tag的问题？
 - State "NEXT"       from              [2017-04-26 三 14:42]
+****** NEXT 如果参数为 =-u xxx -m xxx -b xxx= 三者中的一个如何处理？
+:LOGBOOK:
+- State "NEXT"       from              [2018-09-05 三 14:41]
+:END:
+****** NEXT 从零初始化前，能否提前列出已有可选择的配置/分支？
+:LOGBOOK:
+- State "NEXT"       from              [2018-09-05 三 14:43]
+:END:
 **** 同步
 ***** 语法
 =sync [-c ]=
@@ -317,7 +331,10 @@ CLOSED: [2017-04-26 三 14:42]
 ****** LATER 如何处理tag的问题？
 - State "LATER"      from "NEXT"       [2017-04-26 三 16:09]
 - State "NEXT"       from              [2017-04-26 三 14:42]
-
+****** NEXT cache机制，会导致同步过一次就不会同步了？最好能设置一个过期间隔。
+:LOGBOOK:
+- State "NEXT"       from              [2018-09-05 三 14:59]
+:END:
 
 ****** 注意
 如果只对当前已经工作了的分支，那么最好用pull。
@@ -370,7 +387,7 @@ CLOSED: [2017-04-26 三 16:11]
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [23%] [4/17]
+* WAIT/FORWARD TODO [22%] [4/18]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -493,3 +510,7 @@ Mon Apr 10 16:32:46 2017
 - State "LATER"      from              [2017-05-03 三 16:32]
 ** =rgits.py status= 这类的函数能否批量输出的时候，以汇总的形式输出？
 添加一个parse函数，比如 =git status --porcelain=
+** LATER 考虑将rgits的文档直接放到各个函数中，使用 __doc__ 的方式打印出来。
+:LOGBOOK:
+- State "LATER"      from              [2018-09-27 四 15:16]
+:END:
