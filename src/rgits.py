@@ -219,13 +219,14 @@ def _sync_manifests(manifestUrl, branch, manifestFile):
 		branch = tag_match.group(2)
 
 	if os.access(repo_path + "/manifests" , os.F_OK):
-		#logging.info("Will remove previous files %s.\n" %(repo_path))#XXX ask? may be only manifests needs to be remove.
-		#cmd = "rm -rf %s" %(repo_path)
 		logging.info("Will remove previous manifests files %s.\n" %(repo_path))
+		#Create empty in case remove error.
 		cmd = "mkdir -p %s" %(repo_path + "/manifests")
 		retCode += run_cmd(cmd)
 		cmd = "touch %s" %(repo_path + "/manifest.xml")
 		retCode += run_cmd(cmd)
+
+		#Remove exists manifest files.
 		cmd = "rm -rf %s %s" %(repo_path + "/manifests", repo_path + "/manifest.xml")
 		retCode += run_cmd(cmd)
 
@@ -234,18 +235,17 @@ def _sync_manifests(manifestUrl, branch, manifestFile):
 
 	if tag_match == None:#branch
 		check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
-		if 0 != run_cmd(check_branch_exists, ignoreError=True):#if branch not exists
+		if 0 != run_cmd(check_branch_exists, ignoreError=True):#Not exists branch
 			cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch, "origin/"+branch)
 			retCode += run_cmd(cmd)
-		else:
+		else:#Exists local branch
 			cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
 			retCode += run_cmd(cmd)
 			logging.warn("%s already exists\n" %branch)
-	else:
+	else:#Tag in fact , treat it same as exists local branch
 		cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
 		retCode += run_cmd(cmd)
 
-	#XXX check if file exists.
 	cmd = "ln -s %s %s" %(repo_path+"manifests/"+manifestFile, repo_path+ "manifest.xml")
 	retCode += run_cmd(cmd)
 
@@ -399,6 +399,21 @@ def _sync_projects(cleanSync):
 	return retCode
 
 def do_init():
+	'''Only update manifests for project.
+
+	   Currently used manifest is softlinked to .gits/manifest.xml,
+	   Currently used branch is the revision in manifests.xml.
+
+For -m (manifests)
+	It's the file in .gits/manifests.
+	Remove previous manifest files before init.
+	Default manifest is from .gits/manifests/default.xml.
+	Default branch is master for all sub projects & manifests git repo.
+
+For -b (branch)
+	It's the branch for all projects and manifests's git repositories.
+	Checkout tag and exists local branch ,
+	Create and checkout non exists local branch.'''
 	retCode = 0
 	try:
 		initUrl, manifestFile, branch = None, "default.xml", "master"
@@ -587,20 +602,21 @@ def do_gits(command):
 def do_subgits(command):
 	retCode = 0
 	cmd = "find . -name .git |sed s/.git$//g"
-	print "=" * (len(cmd))
+	print "-" * (len(cmd))
 	retCode,output = commands_cmd(cmd)
-	print "=" * (len(cmd))
+	print "-" * (len(cmd))
 	git_prjs = output.split()
 	for prj in git_prjs:
+		print "=" * len("For project '%s':" %prj)
+		print "For project '%s':" %prj
+		print "=" * len("For project '%s':" %prj)
 		prj_path = os.getcwd() + "/" + prj
 		cmd = "cd " + prj_path + " && " + "git " + command
-		print "=" * len(cmd)
+		print "-" * len(cmd)
 		tmpRet,output = commands_cmd(cmd)
 		retCode += tmpRet
-		print "=" * len(cmd)
-		print "For project '%s':" %prj
-		print "-" * len("For project '%s':" %prj)
-		print output
+		print "-" * len(cmd)
+		#print output
 	return retCode
 
 def do_cmd():

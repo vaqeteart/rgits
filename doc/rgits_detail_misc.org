@@ -235,7 +235,7 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 =init [ -u <initurl> [-b <branch>] [-m <manifest>] ]=
 
 ***** 描述
-初始化 =rgits= 客户端环境，建立好 =.gits= 目录，但是并没有对其中的 =.gits/projects= 项目集获取。
+初始化 =rgits= 客户端环境，建立 =.gits= 目录，更新其中的 =.gits/manifests= 项目配置信息，但是不会获取其中 =.gits/projects= 的项目内容。
 ****** 选项
 + =-u= 最开始必须被指定，指定的是服务端的库集合根目录。 
 
@@ -257,6 +257,26 @@ miracle@xmnb4003210:~/mygitrepo/tmp/rgits/src/server/example$ tree -a -L 4
 
 执行期间，将git目录与其工作目录分开，并置于 =.gits/projects/= 对应目录中。
 
+代码注释：
+#+BEGIN_SRC python
+def do_init():
+'''
+Only update manifests for project,
+currently used manifest is softlinked to .gits/manifest.xml,
+currently used branch is the revision in manifests.xml.
+
+For -m (manifests)
+It's the file in .gits/manifests.
+Remove previous manifest files before init.
+Default manifest is from .gits/manifests/default.xml.
+Default branch is master for all sub projects & manifests git repo.
+
+For -b (branch)
+It's the branch for all projects and manifests's git repositories.
+Checkout tag and exists local branch ,
+Create and checkout non exists local branch.
+'''
+#+END_SRC
 ***** 举例
 ****** 从零开始初始化
 :PROPERTIES:
@@ -272,16 +292,43 @@ $rgits.py init
 #+END_SRC
 
 ***** 问题
-****** NEXT 如何处理tag的问题？
-- State "NEXT"       from              [2017-04-26 三 14:42]
-****** NEXT 如果参数为 =-u xxx -m xxx -b xxx= 三者中的一个如何处理？
+****** DONE 如何处理tag的问题？
+CLOSED: [2018-09-29 六 11:36]
 :LOGBOOK:
+- State "DONE"       from "NEXT"       [2018-09-29 六 11:36]
+:END:
+- State "NEXT"       from              [2017-04-26 三 14:42]
+******* [2018-09-29 六] 目前tag的处理，和已存在的本地分支处理方式一样。
+#+BEGIN_SRC python
+	if tag_match == None:#branch
+		check_branch_exists = "git --git-dir=%s --work-tree=%s branch |grep -q %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
+		if 0 != run_cmd(check_branch_exists, ignoreError=True):#Not exists branch
+			cmd = "git --git-dir=%s --work-tree=%s checkout -b %s %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch, "origin/"+branch)
+			retCode += run_cmd(cmd)
+		else:#Exists local branch
+			cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
+			retCode += run_cmd(cmd)
+			logging.warn("%s already exists\n" %branch)
+	else:#Tag in fact , treat it same as exists local branch
+		cmd = "git --git-dir=%s --work-tree=%s checkout %s" %(repo_path+"manifests/.git/", repo_path+"manifests/", branch)
+		retCode += run_cmd(cmd)
+#+END_SRC
+****** DONE 如果参数为 =-u xxx -m xxx -b xxx= 三者中的一个如何处理？
+CLOSED: [2018-09-29 六 11:37]
+:LOGBOOK:
+- State "DONE"       from "NEXT"       [2018-09-29 六 11:37]
 - State "NEXT"       from              [2018-09-05 三 14:41]
 :END:
+设置默认的branch,同时-u必须要有，没有则报错。
+#+BEGIN_SRC python
+		initUrl, manifestFile, branch = None, "default.xml", "master"
+#+END_SRC
 ****** NEXT 从零初始化前，能否提前列出已有可选择的配置/分支？
 :LOGBOOK:
 - State "NEXT"       from              [2018-09-05 三 14:43]
 :END:
+考虑增加 =-l= 选项列出可选的manifests和分支。
+
 **** 同步
 ***** 语法
 =sync [-c ]=
@@ -313,7 +360,7 @@ $rgits.py init
 执行期间，将git目录与其工作目录分开，并置于 =.gits/projects/= 对应目录中。
 
 目前只能在根目录下对所有内容进行sync，不能对单个项目进行sync。
-不断输入密码？
+
 
 ***** 举例
 ****** 初始化之后同步
@@ -323,6 +370,38 @@ $rgits.py sync
 这样，会创建 =.gits/projects= 中的内容，并将对应项目工作路径导出到当前工作目录，即和 =.gits= 同级别的目录。
 
 ***** 问题
+****** DONE 有时会不断输入密码验证所有的project？
+CLOSED: [2018-09-29 六 11:40]
+:PROPERTIES:
+:ID:       b965b954-f297-4489-a0b2-5ab7e541bf38
+:END:
+:LOGBOOK:
+- State "DONE"       from "NEXT"       [2018-09-29 六 11:40]
+- State "NEXT"       from              [2018-09-29 六 11:39]
+:END:
+******* [2018-09-29 六] 通过pexpect模块方式解决自动交互问题。
+#+BEGIN_SRC python
+def run_expect(cmd, expect_str="password:"):
+	child = pexpect.spawn('/bin/bash -c "%s"' % (cmd), timeout=None)
+	child.delaybeforesend=0.05 #in case send password to fast before terminal close echo.
+	child.logfile_read=sys.stdout
+	#index = child.expect([expect_str,pexpect.EOF, pexpect.TIMEOUT])
+	index = child.expect([expect_str,pexpect.EOF]) #Will no TIMEOUT except if here.
+	if 0 == index:
+		child.sendline(pwd)
+		child.expect(pexpect.EOF)
+		time.sleep(0.1)
+		if child.isalive():
+			chile.wait()
+	elif 1 == index:
+		if child.isalive():
+			chile.wait()
+	#elif 2 == index:
+	#	logging.debug("exception should be time out")
+
+	logging.debug("command:%s, return status:%d" %(cmd, retCode))
+	return child.before,child.exitstatus
+#+END_SRC
 ****** DONE 为什么服务端更新后，再次sync会同步不到？
 CLOSED: [2017-04-26 三 14:42]
 - State "DONE"       from "NEXT"       [2017-04-26 三 14:42]
@@ -380,6 +459,12 @@ CLOSED: [2017-04-26 三 16:11]
 其它命令大多是git子命令，如果是在顶级目录中，则根据manifest.xml依次遍历所有git项目并执行，如果是在某一个子目录中，则对该子目录下所有git项目（可能不再manifest.xml）依次遍历执行。
 
 =reset --hard= 命令在顶级目录中的时候，如果缺失某个 =manifest.xml=, 则对其进行恢复。
+
+***** 问题
+****** NEXT 子命令输出重复？
+:LOGBOOK:
+- State "NEXT"       from              [2018-09-29 六 11:48]
+:END:
 
 * 使用举例
 ** LATER 典型工作流程
