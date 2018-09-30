@@ -321,12 +321,13 @@ def _sync_projects(cleanSync):
 			continue
 
 		###Check project change
-		#1. No project git dir, but have work dir.
-		#2. Have project git dir, but no work dir.
-		#3. No project git dir, and no work dir.
+		#1. No project git dir, with work dir.
+		#2. No project git dir, no work dir.
+		#3. With project git dir, no work dir.
+		#4. With project git dir, with work dir.
 		if (not os.access(repo_path + "projects/" + prj_info["path"], os.F_OK)) or (not os.access( prj_info["path"], os.F_OK)):
 			if os.access(prj_info["path"], os.F_OK):
-				#No project git dir but have local work dir.
+				#No project git dir, with local work dir.
 				logging.info("Will remove previous work files %s.\n" %(prj_info["path"]))#XXX ask?
 				cmd = "rm -rf %s" %(prj_info["path"])
 				tmpRet += run_cmd(cmd)
