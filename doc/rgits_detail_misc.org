@@ -472,7 +472,7 @@ CLOSED: [2017-04-26 三 16:11]
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [22%] [4/18]
+* WAIT/FORWARD TODO [21%] [4/19]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -599,3 +599,8 @@ Mon Apr 10 16:32:46 2017
 :LOGBOOK:
 - State "LATER"      from              [2018-09-27 四 15:16]
 :END:
+** NEXT 考虑一下rgits同步时，如果有本地修改的话，处理不丢失本地修改？
+:LOGBOOK:
+- State "NEXT"       from              [2018-10-30 二 15:01]
+:END:
+这样每次同步的时候，可以不用考虑先依次保证本地无修改。
