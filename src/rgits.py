@@ -2,7 +2,6 @@
 import os
 import time
 import sys
-import commands
 import getopt
 import getpass
 import pexpect
@@ -54,7 +53,7 @@ def run_cmd(cmd, expect_str="password:", ignoreError=False):
 	wt=5
 
 	out,retCode = run_expect(cmd,expect_str)
-	#print out
+	#print(out)
 
 	if ignoreError == False and retCode != 0:
 		logging.error("<<Error command>>:%s, <<return status>>:%d" %(cmd, retCode))
@@ -78,16 +77,16 @@ def commands_cmd(cmd, expect_str="password:"):
 	return retCode,out
 
 def show_help():
-	print "                                      RGITS Manual"
-	print "rgits(1)"
+	print("                                      RGITS Manual")
+	print("rgits(1)")
 	print
-	print "NAME"
-	print "    %s - Manage many git projects similiar to repo." % sys.argv[0]
+	print("NAME")
+	print("    %s - Manage many git projects similiar to repo." % sys.argv[0])
 	print
-	print "SYNOPSIS"
-	print "    %s [clone |checkokut |status |pull |push |branch...]" % sys.argv[0]
+	print("SYNOPSIS")
+	print("    %s [clone |checkokut |status |pull |push |branch...]" % sys.argv[0])
 	print
-	print '''
+	print('''
 DESCRIPTION
     COMMANDS
         init [ -u <initurl> -b <branch> -m <manifest> ]
@@ -166,7 +165,7 @@ REPORTTING BUGS
 
 SEE ALSO
    manual page of 'git' and 'repo'.
-	'''
+	''')
 	return 0
 
 def _init_gits(initUrl, branch, manifestFile):
@@ -439,13 +438,13 @@ For -b (branch)
 
 			retCode += _init_gits(initUrl, branch, manifestFile)
 		else:
-			#print repo_path + "manifest.xml"
+			#print(repo_path + "manifest.xml")
 			manifest.parse_manifest(repo_path + "/manifest.xml")
 			manifestUrl=manifest.remote[0].getAttribute('fetch') + "/manifests"
 			manifestFile = os.path.basename(os.readlink(repo_path + "manifest.xml"))
 			branch=manifest.default[0].getAttribute('revision')
 			retCode += _sync_manifests(manifestUrl, branch, manifestFile)
-	except getopt.GetoptError,e:
+	except(getopt.GetoptError) as e:
 		logging.error("%s\n", repr(e))
 		show_help()
 		sys.exit(retCode)
@@ -603,21 +602,21 @@ def do_gits(command):
 def do_subgits(command):
 	retCode = 0
 	cmd = "find . -name .git |sed s/.git$//g"
-	print "-" * (len(cmd))
+	print("-" * (len(cmd)))
 	retCode,output = commands_cmd(cmd)
-	print "-" * (len(cmd))
+	print("-" * (len(cmd)))
 	git_prjs = output.split()
 	for prj in git_prjs:
-		print "=" * len("For project '%s':" %prj)
-		print "For project '%s':" %prj
-		print "=" * len("For project '%s':" %prj)
+		print("=" * len("For project '%s':" %prj))
+		print("For project '%s':" %prj)
+		print("=" * len("For project '%s':" %prj))
 		prj_path = os.getcwd() + "/" + prj
 		cmd = "cd " + prj_path + " && " + "git " + command
-		print "-" * len(cmd)
+		print("-" * len(cmd))
 		tmpRet,output = commands_cmd(cmd)
 		retCode += tmpRet
-		print "-" * len(cmd)
-		#print output
+		print("-" * len(cmd))
+		#print(output)
 	return retCode
 
 def do_cmd():
@@ -639,24 +638,24 @@ def log_err():
 		stdout = sys.stdout
 
 		sys.stdout = f
-		print "=" * 20
-		print time.asctime()
-		print "%d commands errors, list as following:" %len(err_cmds)
-		print "=" * 20
+		print("=" * 20)
+		print(time.asctime())
+		print("%d commands errors, list as following:" %len(err_cmds))
+		print("=" * 20)
 		for err_cmd,status in err_cmds:
-			print "[Error] Command:%s, Status:%d" %(err_cmd, status)
-		print "_" * 20
+			print("[Error] Command:%s, Status:%d" %(err_cmd, status))
+		print("_" * 20)
 
 		f.close()
 
 		sys.stdout = stdout
-		print "=" * 20
-		print time.asctime()
-		print "%d commands errors, list as following:" %len(err_cmds)
-		print "=" * 20
+		print("=" * 20)
+		print(time.asctime())
+		print("%d commands errors, list as following:" %len(err_cmds))
+		print("=" * 20)
 		for err_cmd,status in err_cmds:
-			print "[Error] Command:%s, Status:%d" %(err_cmd, status)
-		print "_" * 20
+			print("[Error] Command:%s, Status:%d" %(err_cmd, status))
+		print("_" * 20)
 
 ######Main function.######
 top_path = os.getcwd()
@@ -683,9 +682,9 @@ if __name__ == "__main__":
 		pwd=getpass.getpass("Password(Ignore by 'ENTER'):")
 
 		if pwd == '':
-			print "No expect password provided."
+			print("No expect password provided.")
 		else:
-			print "With expect password provided."
+			print("With expect password provided.")
 
 		if len(sys.argv) == 1:
 			retCode += -1
@@ -694,7 +693,7 @@ if __name__ == "__main__":
 			retCode += do_cmd()
 
 		log_err()
-	except getopt.GetoptError,e:
+	except(getopt.GetoptError) as e:
 		log_err()
 		logging.error("%s\n", repr(e))
 		show_help()
