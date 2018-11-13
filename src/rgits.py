@@ -48,16 +48,16 @@ def run_expect(cmd, expect_str="password:"):
 	return child.before,child.exitstatus
 
 def run_cmd(cmd, expect_str="password:", ignoreError=False):
-	logging.info("_" * (len("<<command>>:%s" %cmd) >> 1 ))
-	logging.info("<<command>>:%s" %cmd)
-	logging.info("=" * (len("<<command>>:%s" %cmd) >> 1))
+	logging.debug("_" * (len("<<command>>:%s" %cmd) >> 1 ))
+	logging.info("%s" %cmd)
+	logging.debug("=" * (len("<<command>>:%s" %cmd) >> 1))
 	wt=5
 
 	out,retCode = run_expect(cmd,expect_str)
 	#print out
 
 	if ignoreError == False and retCode != 0:
-		logging.error("<<Error command>>:%s, <<return status>>:%d" %(cmd, retCode))
+		logging.error("[ERROR]:%s, <STATUS>:%d" %(cmd, retCode))
 		logging.error("\n\n\n-----\nNOTICE \n         1) For stop, Input 'Ctrl C'. \n         2) For continue, wait %d seconds\n-----" %wt)
 		err_cmds.append((cmd,retCode))
 		retCode = -1
@@ -593,10 +593,24 @@ def do_gits(command):
 				cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				retCode += run_cmd(cmd)
 			else:
-				#cmd = "git --git-dir=%s --work-tree=%s %s" %(repo_path + "projects/" + prj_path, prj_path, command)
 				os.chdir(top_path + "/" + prj_path)
-				cmd = "git --git-dir=%s %s" %(repo_path + "projects/" + prj_path, command)
-				retCode += run_cmd(cmd)
+				#if "status" in command:#TODO
+					#cmd = "git --git-dir=%s %s |grep -q %s" %(repo_path + "projects/" + prj_path, command, "push")
+					#if 0 != run_cmd(check_branch_exists, ignoreError=True):#if branch not exists
+					#cmd = "git --git-dir=%s %s" %(repo_path + "projects/" + prj_path, command)
+					#retCode += run_cmd(cmd)
+				#	pass
+				if "commit" in command:#TODO
+					#cmd = "git --git-dir=%s %s |grep -q %s" %(repo_path + "projects/" + prj_path, command, "push")
+					cmd = "git --git-dir=%s %s" %(repo_path + "projects/" + prj_path, command)
+					retCode += run_cmd(cmd, ignoreError=True)
+					if 0!= retCode:
+						logging.warn("No changes for %s\n" %prj_path)
+					else:
+						pass
+				else:
+					cmd = "git --git-dir=%s %s" %(repo_path + "projects/" + prj_path, command)
+					retCode += run_cmd(cmd)
 				os.chdir(top_path)
 	return retCode
 
@@ -664,8 +678,8 @@ top_path = os.getcwd()
 repo_dir = ".gits/"
 repo_path = top_path + "/" + repo_dir
 manifest = Manifest()
-logging.basicConfig(format='%(name)s:%(asctime)s--%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s>>>:%(message)s', level=logging.DEBUG)
-#logging.basicConfig(format='%(message)s', level=logging.INFO)
+#logging.basicConfig(format='%(name)s:%(asctime)s--%(filename)s:%(funcName)s:%(lineno)d:%(levelname)s>>>:%(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(message)s', level=logging.INFO)
 rgits_cmd = {
 	"help":show_help,
 	"init":do_init,
@@ -674,6 +688,7 @@ rgits_cmd = {
 	"test":do_test,
 }
 err_cmds = []
+tmp_prjs = []
 pwd=""
 
 if __name__ == "__main__":
