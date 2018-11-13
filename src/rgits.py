@@ -601,7 +601,6 @@ def do_gits(command):
 					#retCode += run_cmd(cmd)
 				#	pass
 				if "commit" in command:#TODO
-					#cmd = "git --git-dir=%s %s |grep -q %s" %(repo_path + "projects/" + prj_path, command, "push")
 					cmd = "git --git-dir=%s %s" %(repo_path + "projects/" + prj_path, command)
 					retCode += run_cmd(cmd, ignoreError=True)
 					if 0!= retCode:
