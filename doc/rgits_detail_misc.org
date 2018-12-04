@@ -472,7 +472,7 @@ CLOSED: [2017-04-26 三 16:11]
 * Misc
 其它杂乱内容。
 
-* WAIT/FORWARD TODO [21%] [4/19]
+* WAIT/FORWARD TODO [19%] [4/21]
 - State "WAIT/FORWARD" from              [2016-10-12 三 17:38] \\
   wait for all done.
 ** LATER 如何支持多个不同主机的git项目？
@@ -604,3 +604,11 @@ Mon Apr 10 16:32:46 2017
 - State "NEXT"       from              [2018-10-30 二 15:01]
 :END:
 这样每次同步的时候，可以不用考虑先依次保证本地无修改。
+** LATER rgits使用pexpect输入密码之时，有一个bug:就是ssh提示添加公钥是否yes的时候，会出现问题。
+:LOGBOOK:
+- State "LATER"      from              [2018-12-04 二 10:46]
+:END:
+** LATER rgits的sync.cache最好能设置一个超时机制，超过一定的时间就不忽略其中的内容了。
+:LOGBOOK:
+- State "LATER"      from              [2018-12-04 二 10:46]
+:END:
