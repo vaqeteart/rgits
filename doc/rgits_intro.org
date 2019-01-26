@@ -1,4 +1,7 @@
-参考:[[id:9cc2db7b-2b3d-4c14-a51c-d4ca3e130f44][rgits insteadof repo review]]
+* rgits介绍
+:PROPERTIES:
+:ID:       71bffd75-4663-4822-be15-b05cb74080a9
+:END:
 
 一个可以替代 =repo= 并且节省空间的python脚本工具。
 
@@ -8,6 +11,9 @@
 
 为项目机密，仅对该工具实现方面进行介绍，文中不涉及项目具体内容。
 
+具体参考: [[id:9cc2db7b-2b3d-4c14-a51c-d4ca3e130f44][rgits insteadof repo review]]
+
+具体文档：[[id:2d16c1ed-58ca-473f-a32c-1b163ae73759][rgits使用文档]]
 * WAIT/FORWARD Replace replace repo with git to develop for save space
 :PROPERTIES:
 :ID:       1231e816-94a3-4246-8bcd-f3a410dbe19c

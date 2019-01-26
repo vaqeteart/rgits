@@ -1,3 +1,7 @@
+* rgits使用文档
+:PROPERTIES:
+:ID:       2d16c1ed-58ca-473f-a32c-1b163ae73759
+:END:
 * 概念
 名词是为了便于理解，如果理解了其中的含义，不用名词或者其它名词也可。
 
@@ -93,6 +97,9 @@ rgits目录，或rgits库代表整个项目库目录，即 =.gits=, 其中包括
 rgits工作空间是rgits产品中除了 =.gits= 之外的所有目录，一般就是指 rgits 中所有 git子项目的工作目录的集合。
 
 * 使用方式
+:PROPERTIES:
+:ID:       a1bd5cd1-e0bb-47f5-ab57-e0137bd73341
+:END:
 ** 服务端
 初始库包含 =Manifests= 以及相应的 =git projects=, 其中 =Manifests= 描述了相应的配置信息。而 =git projects= 可能来自其它git库。
 
